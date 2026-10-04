@@ -1,0 +1,20 @@
+<svg xmlns="http://www.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!--
+    Maskable variant: the launcher may crop this to any shape, so the shield is
+    inset inside the 80% safe zone and the background bleeds to the edges.
+  -->
+  <rect width="32" height="32" fill="#1F1E1B" />
+  <g transform="translate(16 16) scale(0.72) translate(-16 -16)">
+    <path
+      d="M16 5.5 25 8.6v6.9c0 5.4-3.6 9.6-9 11.1-5.4-1.5-9-5.7-9-11.1V8.6L16 5.5Z"
+      fill="#F5F2EC"
+    />
+    <path
+      d="M11.8 16.1 15 19.3l5.4-5.4"
+      stroke="#1F1E1B"
+      stroke-width="2.1"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    />
+  </g>
+</svg>
