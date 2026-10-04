@@ -23,6 +23,7 @@ import SettingsTab from './SettingsTab'
 import AddEntryModal from './AddEntryModal'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { STRENGTH_THRESHOLDS, grade } from '../utils/password'
+import type { StorageDurability } from '../services/storageService'
 import type {
   AppSettings,
   EntryInput,
@@ -50,6 +51,9 @@ interface MainLayoutProps {
   onImport: (store: VaultStore) => void | Promise<void>
   onRevealSecrets: (entryId: string) => Promise<{ password: string; url: string }>
   onRevealAll: () => Promise<Record<string, string>>
+  durability: StorageDurability | null
+  requestingPersist: boolean
+  onRequestPersist: () => void
 }
 
 function formatRelativeDate(isoDate?: string): string {
@@ -228,6 +232,9 @@ export default function MainLayout({
   onImport,
   onRevealSecrets,
   onRevealAll,
+  durability,
+  requestingPersist,
+  onRequestPersist,
 }: MainLayoutProps) {
   const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<NavTab>('vault')
@@ -566,6 +573,9 @@ export default function MainLayout({
                 hibpEnabled={settings.hibpEnabled}
                 revealAll={onRevealAll}
                 onFixEntry={onFixEntry}
+                durability={durability}
+                requestingPersist={requestingPersist}
+                onRequestPersist={onRequestPersist}
               />
             </div>
           )}

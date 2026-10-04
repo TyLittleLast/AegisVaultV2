@@ -131,6 +131,73 @@ export function isLockedOut(attempts: UnlockAttempts, now = Date.now()): boolean
   return attempts.lockedUntil !== null && attempts.lockedUntil > now
 }
 
+export interface StorageDurability {
+  /** True once the browser has agreed not to evict this origin under pressure. */
+  persisted: boolean
+  usageBytes: number | null
+  quotaBytes: number | null
+}
+
+/**
+ * Whether the origin can be evicted by the browser at all.
+ *
+ * Absent in Node and in some embedded contexts, so every caller has to cope
+ * with "we cannot even tell" — treated as not persisted, which is the honest
+ * default for a vault whose only copy lives here.
+ */
+function storageManager(): StorageManager | null {
+  return typeof navigator !== 'undefined' ? (navigator.storage ?? null) : null
+}
+
+/**
+ * Asks the browser to stop evicting this origin's storage.
+ *
+ * Best effort and legitimately allowed to fail: Chrome grants it based on
+ * engagement (installed, bookmarked, frequently used), Firefox is generous, and
+ * Safari largely ignores it. The answer is surfaced to the user rather than
+ * assumed, because a silent denial is indistinguishable from data loss later.
+ *
+ * Call this from a user-initiated moment — an automatic grant is far more
+ * likely right after the vault is created or unlocked than on page load.
+ */
+export async function requestPersistentStorage(): Promise<boolean> {
+  const manager = storageManager()
+  if (!manager?.persist) return false
+  try {
+    return await manager.persist()
+  } catch {
+    return false
+  }
+}
+
+export async function readStorageDurability(): Promise<StorageDurability> {
+  const manager = storageManager()
+  if (!manager) return { persisted: false, usageBytes: null, quotaBytes: null }
+
+  let persisted: boolean
+  try {
+    persisted = (await manager.persisted?.()) ?? false
+  } catch {
+    persisted = false
+  }
+
+  let usageBytes: number | null = null
+  let quotaBytes: number | null = null
+  try {
+    const estimate = await manager.estimate?.()
+    // A quota of 0 would render as "0 / 0", so treat it as unknown.
+    if (estimate && estimate.quota) {
+      usageBytes = estimate.usage ?? null
+      quotaBytes = estimate.quota
+    }
+  } catch {
+    usageBytes = null
+    quotaBytes = null
+  }
+
+  return { persisted, usageBytes, quotaBytes }
+}
+
 /** Records a failure and returns the resulting state, with a growing lockout. */
 export async function recordUnlockFailure(now = Date.now()): Promise<UnlockAttempts> {
   const current = await loadUnlockAttempts()
