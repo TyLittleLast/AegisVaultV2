@@ -3,10 +3,24 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AegisVault</title>
+    <title>AegisVault — coffre-fort local, sans serveur</title>
+    <meta
+      name="description"
+      content="Coffre-fort de mots de passe 100 % local. Aucun serveur, aucun compte, aucune télémétrie. Chiffrement Argon2id + AES-256-GCM via Web Crypto."
+    />
+    <meta name="theme-color" content="#F5F2EC" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" type="image/svg+xml" href="/shield.svg" />
+    <link rel="apple-touch-icon" href="/shield.svg" />
+    <!-- Deliberately no referrer: nothing here should leak the vault's context. -->
+    <meta name="referrer" content="no-referrer" />
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      AegisVault chiffre votre coffre localement et ne peut donc pas fonctionner sans
+      JavaScript : le déchiffrement s’effectue dans votre navigateur.
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
