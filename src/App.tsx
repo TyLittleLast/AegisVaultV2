@@ -58,13 +58,13 @@ function formatRemaining(attempts: UnlockAttempts): string {
 }
 
 const fieldShell =
-  'rounded-xl bg-white px-[15px] py-[13px] shadow-sm transition-shadow duration-150 focus-within:shadow-md'
+  'rounded-xl bg-white px-[15px] py-[13px] shadow-card transition-shadow duration-150 focus-within:shadow-panel'
 const fieldInput =
   'w-full border-0 bg-transparent text-[15px] text-inktext outline-none placeholder:text-inktext-faint'
 
 function FeaturePill({ text }: { text: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1 text-xs text-inktext-muted shadow-sm">
+    <span className="inline-flex items-center gap-1.5 rounded-xl bg-white px-3 py-1 text-xs text-inktext-muted shadow-card">
       <ShieldCheck size={11} className="text-ink" />
       {text}
     </span>
@@ -264,7 +264,7 @@ function LoginScreen({
             )}
 
             {error && (
-              <div className="rounded-xl bg-white px-3.5 py-2.5 text-[13.5px] leading-normal text-red-600 shadow-sm">
+              <div className="rounded-xl bg-white px-3.5 py-2.5 text-[13.5px] leading-normal text-red-600 shadow-card">
                 {error}
               </div>
             )}
@@ -315,7 +315,7 @@ function BlockedVaultScreen({
 }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-cream px-6 font-sans">
-      <div className="w-full max-w-[420px] rounded-2xl bg-white p-7 shadow-sm">
+      <div className="w-full max-w-[420px] rounded-2xl bg-white p-7 shadow-card">
         <div className="mb-4 flex items-center gap-2.5 text-ink">
           <AlertTriangle size={20} strokeWidth={1.75} />
           <h1 className="text-[17px] font-semibold tracking-[-0.03em]">{title}</h1>

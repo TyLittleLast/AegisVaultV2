@@ -16,7 +16,7 @@ const TEXT_FIELDS = [
 ] as const
 
 const fieldShell =
-  'flex cursor-text items-center gap-2.5 rounded-xl bg-cream px-3 py-2.5 transition-shadow duration-150 focus-within:bg-white focus-within:shadow-sm'
+  'flex cursor-text items-center gap-2.5 rounded-xl bg-cream px-3 py-2.5 transition-shadow duration-150 focus-within:bg-white focus-within:shadow-panel'
 const iconBtn =
   'flex cursor-pointer border-0 bg-transparent p-1 text-inktext-faint transition-colors duration-150 hover:text-inktext'
 
@@ -116,7 +116,7 @@ export default function AddEntryModal({ onAdd, onClose, prefillPassword = '' }: 
         aria-modal="true"
         aria-labelledby="add-entry-title"
         onSubmit={handleSubmit}
-        className="flex w-full max-w-[400px] animate-fade flex-col gap-3 rounded-xl bg-white p-5 shadow-sm"
+        className="flex w-full max-w-[400px] animate-fade flex-col gap-3 rounded-xl bg-white p-5 shadow-card"
       >
         <div className="mb-1 flex items-start justify-between">
           <div className="flex items-center gap-2.5">

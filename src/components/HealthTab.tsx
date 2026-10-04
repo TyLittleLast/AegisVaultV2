@@ -149,7 +149,7 @@ export default function HealthTab({
         Les mots de passe ne quittent l&apos;appareil pendant l&apos;analyse.
       </p>
 
-      <div className="flex items-center gap-5 rounded-xl bg-white p-6 shadow-sm">
+      <div className="flex items-center gap-5 rounded-xl bg-white p-6 shadow-card">
         <div className="text-5xl font-semibold tabular-nums text-ink">
           {globalScore === null ? '—' : globalScore}
           {globalScore !== null && <span className="text-2xl">%</span>}
@@ -189,7 +189,7 @@ export default function HealthTab({
               onClick={() => setFilter(f.id)}
               className={`cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-medium transition-colors ${
                 filter === f.id
-                  ? 'bg-white text-ink shadow-sm'
+                  ? 'bg-white text-ink shadow-card'
                   : 'text-inktext-muted hover:bg-white/70 hover:text-inktext'
               }`}
             >
@@ -222,7 +222,7 @@ export default function HealthTab({
           return (
             <div
               key={entry.id}
-              className={`overflow-hidden rounded-xl transition-colors ${isOpen ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
+              className={`overflow-hidden rounded-xl transition-colors ${isOpen ? 'bg-white shadow-card' : 'hover:bg-white/70'}`}
             >
               <button
                 className="flex min-h-[60px] w-full cursor-pointer items-center justify-between px-3.5 py-2.5 text-left"

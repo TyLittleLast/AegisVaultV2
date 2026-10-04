@@ -81,7 +81,7 @@ export default function GeneratorTab({ onUsePassword }: GeneratorTabProps) {
         Généré localement avec crypto.getRandomValues, via un tirage uniforme sans biais.
       </p>
 
-      <div className="flex items-center gap-2 rounded-xl bg-white px-4 py-4 shadow-sm">
+      <div className="flex items-center gap-2 rounded-xl bg-white px-4 py-4 shadow-card">
         <span className="flex-1 break-all font-mono text-sm text-inktext/80">
           {password || <span className="text-inktext-faint">—</span>}
         </span>
@@ -110,7 +110,7 @@ export default function GeneratorTab({ onUsePassword }: GeneratorTabProps) {
             {bits} bits — {label}
           </span>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-white shadow-sm">
+        <div className="h-1.5 overflow-hidden rounded-full bg-white shadow-card">
           <div
             className={`h-full rounded-full transition-all duration-300 ${barColor}`}
             style={{ width: `${Math.min((bits / 128) * 100, 100)}%` }}
@@ -134,7 +134,7 @@ export default function GeneratorTab({ onUsePassword }: GeneratorTabProps) {
         />
       </div>
 
-      <div className="flex flex-col gap-1 rounded-xl bg-white p-2 shadow-sm">
+      <div className="flex flex-col gap-1 rounded-xl bg-white p-2 shadow-card">
         {OPTIONS.map(({ key, label: optionLabel }) => (
           <div
             key={key}
@@ -152,7 +152,7 @@ export default function GeneratorTab({ onUsePassword }: GeneratorTabProps) {
               }`}
             >
               <span
-                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${
+                className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-card transition-all ${
                   opts[key] ? 'left-5' : 'left-0.5'
                 }`}
               />
@@ -178,7 +178,7 @@ export default function GeneratorTab({ onUsePassword }: GeneratorTabProps) {
         {onUsePassword && password && (
           <button
             onClick={() => onUsePassword(password)}
-            className="flex-1 cursor-pointer rounded-xl bg-white py-2.5 text-sm font-medium text-inktext-muted shadow-sm transition-colors hover:text-inktext"
+            className="flex-1 cursor-pointer rounded-xl bg-white py-2.5 text-sm font-medium text-inktext-muted shadow-card transition-colors hover:text-inktext"
           >
             Enregistrer dans le coffre
           </button>

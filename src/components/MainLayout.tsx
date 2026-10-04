@@ -108,7 +108,7 @@ function VaultRow({
     <div
       onClick={() => onSelect(entry.id)}
       className={`group flex cursor-pointer items-center gap-3 rounded-xl px-2.5 py-2 transition-colors duration-150 ${
-        isSelected ? 'bg-white shadow-sm' : 'hover:bg-white/70'
+        isSelected ? 'bg-white shadow-card' : 'hover:bg-white/70'
       }`}
     >
       <ServiceAvatar label={meta?.service ?? entry.id} size={32} />
@@ -191,7 +191,7 @@ function BottomTabBar({
             aria-current={active ? 'page' : undefined}
           >
             <div
-              className={`relative flex h-8 w-10 items-center justify-center rounded-xl ${active ? 'bg-white shadow-sm' : ''}`}
+              className={`relative flex h-8 w-10 items-center justify-center rounded-xl ${active ? 'bg-white shadow-card' : ''}`}
             >
               <Icon size={18} strokeWidth={active ? 2 : 1.6} />
             </div>
@@ -327,7 +327,7 @@ export default function MainLayout({
               />
             </label>
             <button
-              className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3 text-sm font-medium text-ink shadow-sm transition-colors duration-150 hover:bg-white"
+              className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3 text-sm font-medium text-ink shadow-card transition-colors duration-150 hover:bg-white"
               onClick={() => {
                 setPrefillPwd('')
                 setShowModal(true)
@@ -353,7 +353,7 @@ export default function MainLayout({
                   onClick={() => setFilter(f.id)}
                   className={`shrink-0 cursor-pointer rounded-xl px-3 py-1.5 text-[13px] font-medium transition-colors duration-150 ${
                     filter === f.id
-                      ? 'bg-white text-ink shadow-sm'
+                      ? 'bg-white text-ink shadow-card'
                       : 'text-inktext-muted hover:bg-white/70 hover:text-inktext'
                   }`}
                 >
@@ -405,7 +405,7 @@ export default function MainLayout({
                 </p>
                 {entries.length === 0 && (
                   <button
-                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink shadow-sm"
+                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink shadow-card"
                     onClick={() => setShowModal(true)}
                   >
                     <Plus size={15} /> Ajouter
@@ -418,7 +418,7 @@ export default function MainLayout({
 
         {(!isMobile || mobileView === 'detail') && (isMobile || entries.length > 0) && (
           <div
-            className={`scrollbar-thin flex min-h-0 flex-col overflow-y-auto rounded-xl bg-white shadow-sm ${isMobile ? 'min-h-0 w-full flex-1' : 'w-[360px] shrink-0'}`}
+            className={`scrollbar-thin flex min-h-0 flex-col overflow-y-auto rounded-xl bg-white shadow-card ${isMobile ? 'min-h-0 w-full flex-1' : 'w-[360px] shrink-0'}`}
           >
             {isMobile && selectedEntry && (
               <button
@@ -487,7 +487,7 @@ export default function MainLayout({
                     sidebarOpen ? 'gap-3 px-2.5' : 'justify-center px-0'
                   } ${
                     active
-                      ? 'bg-white text-ink shadow-sm'
+                      ? 'bg-white text-ink shadow-card'
                       : 'bg-transparent text-inktext-muted hover:bg-white/70 hover:text-inktext'
                   }`}
                 >

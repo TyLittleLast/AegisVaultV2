@@ -1,14 +1,95 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+/*
+ * Design tokens. Tailwind v4 is configured in CSS rather than
+ * tailwind.config.js; these become CSS custom properties, inspectable in
+ * devtools and usable with color-mix().
+ */
+@theme {
+  --color-cream: #faf8f5;
+  --color-cream-deep: #f2efe9;
+  --color-ink: #111111;
+  --color-ink-mid: #444444;
+  --color-ink-deep: #000000;
+  --color-ink-light: rgb(0 0 0 / 0.06);
+  --color-peach: #e8927c;
+  --color-peach-light: #fef0eb;
+  --color-peach-deep: #c96a50;
+  --color-border: #e8e4dc;
+  --color-border-soft: #f0ece4;
+  --color-surface-hover: #f5f2ec;
+  --color-inktext: #1a1814;
+  --color-inktext-muted: #6b6660;
+  --color-inktext-faint: #9e9890;
+
+  --font-sans:
+    'Inter Variable', Inter, 'Segoe UI', system-ui, sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Code', ui-monospace,
+    monospace;
+
+  --shadow-card: 0 2px 8px rgb(26 24 20 / 0.04);
+  --shadow-panel:
+    0 1px 3px rgb(26 24 20 / 0.04), 0 8px 24px rgb(26 24 20 / 0.04);
+  --shadow-modal: 0 24px 64px rgb(24 33 38 / 0.18);
+
+  --background-image-app: radial-gradient(
+      ellipse 70% 40% at 90% 0%,
+      rgb(79 70 229 / 0.06),
+      transparent
+    ),
+    radial-gradient(
+      ellipse 50% 50% at 0% 100%,
+      rgb(232 146 124 / 0.08),
+      transparent
+    );
+
+  --animate-rise: rise 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade: fade 260ms ease both;
+  --animate-loading-bar: loading-bar 1.2s ease-in-out infinite;
+
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes loading-bar {
+    0% {
+      transform: translateX(-100%);
+    }
+    50% {
+      transform: translateX(200%);
+    }
+    100% {
+      transform: translateX(200%);
+    }
+  }
+}
 
 @layer base {
   html {
-    @apply scroll-smooth;
+    scroll-behavior: smooth;
   }
 
   body {
-    @apply m-0 min-w-[320px] min-h-screen bg-cream bg-app font-sans text-inktext antialiased;
+    @apply m-0 min-h-screen min-w-[320px] bg-cream bg-app font-sans text-inktext antialiased;
   }
 
   button,
@@ -21,12 +102,19 @@
   a {
     @apply text-inherit;
   }
+
+  /* Inputs previously dropped focus outlines without replacing them, leaving
+     keyboard users with no indication of where they were. */
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 2px;
+  }
 }
 
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #E8E4DC transparent;
+    scrollbar-color: var(--color-border) transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -34,7 +122,7 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background: #E8E4DC;
+    background: var(--color-border);
     border-radius: 999px;
   }
 
