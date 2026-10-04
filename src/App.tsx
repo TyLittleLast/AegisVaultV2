@@ -20,14 +20,23 @@ import {
 import { diagnoseVault } from './services/vaultSchema'
 import {
   DEFAULT_SETTINGS,
+  EMPTY_ATTEMPTS,
+  MAX_UNLOCK_FAILURES,
+  clearUnlockAttempts,
   deleteVault,
+  isLockedOut,
   loadSettings,
+  loadUnlockAttempts,
   loadVault,
+  recordUnlockFailure,
   saveSettings,
   saveVault,
+  type UnlockAttempts,
 } from './services/storageService'
 import MainLayout from './components/MainLayout'
+import { useIdleLock } from './hooks/useIdleLock'
 import { useIsMobile } from './hooks/useIsMobile'
+import { clearClipboard } from './utils/clipboard'
 import { entropy, generateStrongPassword } from './utils/password'
 import {
   VAULT_FORMAT_VERSION,
@@ -39,6 +48,13 @@ import {
 } from './types/vault'
 
 type Screen = 'loading' | 'setup' | 'login' | 'unlocked' | 'legacy' | 'corrupt'
+
+function formatRemaining(attempts: UnlockAttempts): string {
+  if (attempts.lockedUntil === null) return ''
+  const seconds = Math.max(1, Math.ceil((attempts.lockedUntil - Date.now()) / 1000))
+  if (seconds < 60) return `${seconds} s`
+  return `${Math.ceil(seconds / 60)} min`
+}
 
 const fieldShell =
   'rounded-xl bg-white px-[15px] py-[13px] shadow-sm transition-shadow duration-150 focus-within:shadow-md'
@@ -81,21 +97,43 @@ function LoginScreen({
   onSetup,
   isSetup,
   isMobile,
+  lockedUntil,
 }: {
   onLogin: (pwd: string) => Promise<void>
   onSetup: (pwd: string) => Promise<void>
   isSetup: boolean
   isMobile: boolean
+  lockedUntil: number | null
 }) {
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPwd, setShowPwd] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [remaining, setRemaining] = useState(0)
+
+  // Live countdown while a lockout is active.
+  useEffect(() => {
+    if (lockedUntil === null) {
+      setRemaining(0)
+      return
+    }
+    const tick = () =>
+      setRemaining(Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000)))
+    tick()
+    const id = setInterval(tick, 1000)
+    return () => clearInterval(id)
+  }, [lockedUntil])
+
+  const lockedOut = remaining > 0
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
+    if (lockedOut) {
+      setError(`Déverrouillage temporaire. Réessayez dans ${remaining} s.`)
+      return
+    }
     if (password.length < 8) {
       setError('Minimum 8 caractères requis.')
       return
@@ -232,11 +270,13 @@ function LoginScreen({
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || lockedOut}
               className="mt-1 inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl bg-ink px-5 py-3 text-sm font-medium text-white transition-colors duration-150 hover:bg-ink-deep disabled:cursor-not-allowed disabled:opacity-55"
             >
               {loading ? (
                 <span className="opacity-70">Déchiffrement…</span>
+              ) : lockedOut ? (
+                <span className="opacity-70">Verrouillé — {remaining} s</span>
               ) : (
                 <>
                   {isSetup ? 'Créer le coffre' : 'Déverrouiller'} <ArrowRight size={16} />
@@ -293,37 +333,41 @@ function BlockedVaultScreen({
 
 export default function App() {
   const keyRef = useRef<CryptoKey | null>(null)
-  const autoLockRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isMobile = useIsMobile()
 
   const [screen, setScreen] = useState<Screen>('loading')
   const [vault, setVault] = useState<VaultStore | null>(null)
   const [searchIndex, setSearchIndex] = useState<Record<string, EntrySearchMeta>>({})
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
+  const [attempts, setAttempts] = useState<UnlockAttempts>(EMPTY_ATTEMPTS)
+
+  const lock = useCallback(() => {
+    clearKey(keyRef)
+    // A copied secret outlives the lock unless the clipboard is wiped too.
+    void clearClipboard()
+    setVault(null)
+    setSearchIndex({})
+    setScreen('login')
+  }, [])
+
+  useIdleLock({
+    enabled: screen === 'unlocked',
+    minutes: settings.autoLockMinutes,
+    lockOnBlur: settings.lockOnBlur,
+    onLock: lock,
+  })
 
   useEffect(() => {
     void (async () => {
       const [raw, loadedSettings] = await Promise.all([loadVault(), loadSettings()])
       setSettings(loadedSettings)
+      setAttempts(await loadUnlockAttempts())
       const diagnosis = diagnoseVault(raw)
       if (diagnosis.kind === 'empty') setScreen('setup')
       else if (diagnosis.kind === 'legacy') setScreen('legacy')
       else if (diagnosis.kind === 'corrupt') setScreen('corrupt')
       else setScreen('login')
     })()
-  }, [])
-
-  const resetAutoLock = useCallback((minutes: number) => {
-    if (autoLockRef.current) clearTimeout(autoLockRef.current)
-    autoLockRef.current = setTimeout(() => lock(), minutes * 60_000)
-  }, [])
-
-  const lock = useCallback(() => {
-    clearKey(keyRef)
-    setVault(null)
-    setSearchIndex({})
-    setScreen('login')
-    if (autoLockRef.current) clearTimeout(autoLockRef.current)
   }, [])
 
   const persist = useCallback(async (next: VaultStore) => {
@@ -348,14 +392,16 @@ export default function App() {
       keyRef.current = key
       setVault(fresh)
       setSearchIndex({})
-      resetAutoLock(settings.autoLockMinutes)
       setScreen('unlocked')
     },
-    [resetAutoLock, settings.autoLockMinutes],
+    [],
   )
 
   const handleLogin = useCallback(
     async (masterPwd: string) => {
+      if (isLockedOut(attempts)) {
+        throw new Error('Trop de tentatives. Patientez avant de réessayer.')
+      }
       const diagnosis = diagnoseVault(await loadVault())
       if (diagnosis.kind === 'empty') {
         setScreen('setup')
@@ -368,15 +414,22 @@ export default function App() {
       const stored = diagnosis.store
       const key = await deriveKey(masterPwd, fromBase64Salt(stored.salt), stored.kdf)
       if (!(await verifyCanary(stored.canary, key))) {
-        throw new Error('Mot de passe incorrect.')
+        const next = await recordUnlockFailure()
+        setAttempts(next)
+        throw new Error(
+          isLockedOut(next)
+            ? `Mot de passe incorrect. Verrouillage temporaire ${formatRemaining(next)}.`
+            : `Mot de passe incorrect. ${MAX_UNLOCK_FAILURES - next.failures} tentatives restantes.`,
+        )
       }
+      await clearUnlockAttempts()
+      setAttempts(EMPTY_ATTEMPTS)
       keyRef.current = key
       setVault(stored)
       setSearchIndex(await buildSearchIndex(stored.entries, key))
-      resetAutoLock(settings.autoLockMinutes)
       setScreen('unlocked')
     },
-    [resetAutoLock, settings.autoLockMinutes],
+    [attempts],
   )
 
   const handleAddEntry = useCallback(
@@ -442,13 +495,13 @@ export default function App() {
   const handleSettingsChange = useCallback(async (next: AppSettings) => {
     setSettings(next)
     await saveSettings(next)
-    resetAutoLock(next.autoLockMinutes)
-  }, [resetAutoLock])
+  }, [])
 
   const handleReset = useCallback(async () => {
-    if (autoLockRef.current) clearTimeout(autoLockRef.current)
     clearKey(keyRef)
     await deleteVault()
+    await clearUnlockAttempts()
+    setAttempts(EMPTY_ATTEMPTS)
     setVault(null)
     setSearchIndex({})
     setScreen('setup')
@@ -539,6 +592,7 @@ export default function App() {
         onSetup={handleSetup}
         isSetup={screen === 'setup'}
         isMobile={isMobile}
+        lockedUntil={attempts.lockedUntil}
       />
     )
   }
