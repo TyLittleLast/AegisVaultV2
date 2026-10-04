@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Globe2, KeyRound, UserRound, Vault, X, Eye, EyeOff, RefreshCw } from 'lucide-react'
-import { STRENGTH_THRESHOLDS, entropy as calcEntropy, generateStrongPassword } from '../utils/password'
+import {
+  STRENGTH_THRESHOLDS,
+  entropy as calcEntropy,
+  generateStrongPassword,
+} from '../utils/password'
 import type { EntryInput } from '../types/vault'
 
 interface AddEntryModalProps {
@@ -10,9 +14,21 @@ interface AddEntryModalProps {
 }
 
 const TEXT_FIELDS = [
-  { key: 'service', icon: Vault, label: 'Service', hint: 'Ex. Netflix, GitHub…', autoComplete: 'off' },
+  {
+    key: 'service',
+    icon: Vault,
+    label: 'Service',
+    hint: 'Ex. Netflix, GitHub…',
+    autoComplete: 'off',
+  },
   { key: 'url', icon: Globe2, label: 'Adresse du site', hint: 'Optionnel', autoComplete: 'url' },
-  { key: 'username', icon: UserRound, label: 'Identifiant', hint: 'Email ou nom d’utilisateur', autoComplete: 'username' },
+  {
+    key: 'username',
+    icon: UserRound,
+    label: 'Identifiant',
+    hint: 'Email ou nom d’utilisateur',
+    autoComplete: 'username',
+  },
 ] as const
 
 const fieldShell =
@@ -25,10 +41,23 @@ function StrengthBar({ password }: { password: string }) {
   const bits = calcEntropy(password)
   const pct = Math.min((bits / 128) * 100, 100)
   const color =
-    bits < STRENGTH_THRESHOLDS.medium ? 'text-red-600' : bits < STRENGTH_THRESHOLDS.strong ? 'text-amber-600' : 'text-emerald-600'
+    bits < STRENGTH_THRESHOLDS.medium
+      ? 'text-red-600'
+      : bits < STRENGTH_THRESHOLDS.strong
+        ? 'text-amber-600'
+        : 'text-emerald-600'
   const bar =
-    bits < STRENGTH_THRESHOLDS.medium ? 'bg-red-600' : bits < STRENGTH_THRESHOLDS.strong ? 'bg-amber-600' : 'bg-emerald-600'
-  const label = bits < STRENGTH_THRESHOLDS.medium ? 'Faible' : bits < STRENGTH_THRESHOLDS.strong ? 'Moyen' : 'Fort'
+    bits < STRENGTH_THRESHOLDS.medium
+      ? 'bg-red-600'
+      : bits < STRENGTH_THRESHOLDS.strong
+        ? 'bg-amber-600'
+        : 'bg-emerald-600'
+  const label =
+    bits < STRENGTH_THRESHOLDS.medium
+      ? 'Faible'
+      : bits < STRENGTH_THRESHOLDS.strong
+        ? 'Moyen'
+        : 'Fort'
   return (
     <div className="mt-1.5">
       <div className="h-[3px] overflow-hidden rounded-full bg-border">
@@ -44,7 +73,11 @@ function StrengthBar({ password }: { password: string }) {
   )
 }
 
-export default function AddEntryModal({ onAdd, onClose, prefillPassword = '' }: AddEntryModalProps) {
+export default function AddEntryModal({
+  onAdd,
+  onClose,
+  prefillPassword = '',
+}: AddEntryModalProps) {
   const [form, setForm] = useState<EntryInput>({
     service: '',
     url: '',
@@ -125,7 +158,12 @@ export default function AddEntryModal({ onAdd, onClose, prefillPassword = '' }: 
               Nouvelle entrée
             </h2>
           </div>
-          <button type="button" onClick={onClose} className={`${iconBtn} mt-0.5 p-1.5`} aria-label="Fermer">
+          <button
+            type="button"
+            onClick={onClose}
+            className={`${iconBtn} mt-0.5 p-1.5`}
+            aria-label="Fermer"
+          >
             <X size={16} />
           </button>
         </div>

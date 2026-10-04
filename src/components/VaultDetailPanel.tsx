@@ -220,7 +220,9 @@ export default function VaultDetailPanel({
               onClick={() => void reveal()}
               disabled={revealing}
               className={iconBtn}
-              aria-label={password ? (revealed ? 'Masquer' : 'Afficher') : 'Déchiffrer le mot de passe'}
+              aria-label={
+                password ? (revealed ? 'Masquer' : 'Afficher') : 'Déchiffrer le mot de passe'
+              }
               title="Déchiffrer à la demande"
             >
               {revealing ? (
@@ -254,7 +256,9 @@ export default function VaultDetailPanel({
         <span className="text-[12.5px] text-inktext-muted">
           {info.label}
           {hibpLoading && ' · vérification…'}
-          {!hibpLoading && hibpResult?.isPwned && ` · vu ${hibpResult.count.toLocaleString('fr-FR')} fois`}
+          {!hibpLoading &&
+            hibpResult?.isPwned &&
+            ` · vu ${hibpResult.count.toLocaleString('fr-FR')} fois`}
           {!hibpLoading && hibpResult && !hibpResult.isPwned && ' · non compromis'}
         </span>
       </div>

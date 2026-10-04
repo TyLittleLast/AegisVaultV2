@@ -60,9 +60,7 @@ export const isLegacyVaultStore = (value: unknown): value is LegacyVaultStore =>
   typeof value.salt === 'string' &&
   isEncryptedPayload(value.canary) &&
   Array.isArray(value.entries) &&
-  value.entries.every(
-    (entry) => isRecord(entry) && typeof entry.service === 'string',
-  )
+  value.entries.every((entry) => isRecord(entry) && typeof entry.service === 'string')
 
 export type VaultDiagnosis =
   | { kind: 'empty' }

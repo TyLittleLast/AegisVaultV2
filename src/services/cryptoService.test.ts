@@ -38,7 +38,7 @@ async function keyFor(password: string, salt = generateSalt(), kdf = TEST_KDF) {
 }
 
 describe('deriveKey', () => {
-  it("produit une clé non extractible", async () => {
+  it('produit une clé non extractible', async () => {
     const key = await keyFor('master')
     expect(key.extractable).toBe(false)
 
@@ -78,7 +78,9 @@ describe('deriveKey', () => {
     // A different iteration count must yield a different key, so one payload
     // cannot be read with a key derived under the other parameters.
     await expect(decryptData(heavy, await keyFor('p', salt, TEST_KDF))).rejects.toThrow()
-    await expect(decryptData(cheap, await keyFor('p', salt, { ...TEST_KDF, t: 2 }))).rejects.toThrow()
+    await expect(
+      decryptData(cheap, await keyFor('p', salt, { ...TEST_KDF, t: 2 })),
+    ).rejects.toThrow()
   })
 
   it('conserve les paramètres de production du cahier des charges', () => {
@@ -145,9 +147,7 @@ describe('encryptData / decryptData', () => {
     const key = await keyFor('master')
     const payload = await encryptData('secret value', key)
 
-    await expect(
-      decryptData({ ...payload, iv: flipBit(payload.iv, 0) }, key),
-    ).rejects.toThrow()
+    await expect(decryptData({ ...payload, iv: flipBit(payload.iv, 0) }, key)).rejects.toThrow()
   })
 
   it('rejette une charge utile tronquée', async () => {

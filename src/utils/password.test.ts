@@ -33,9 +33,15 @@ describe('buildPool', () => {
   })
 
   it('conserve les symboles même en mode non ambigus', () => {
-    expect(buildPool({ symbols: true, upper: false, lower: false, digits: false, excludeAmbiguous: true })).toContain(
-      '!',
-    )
+    expect(
+      buildPool({
+        symbols: true,
+        upper: false,
+        lower: false,
+        digits: false,
+        excludeAmbiguous: true,
+      }),
+    ).toContain('!')
   })
 
   it('renvoie une chaîne vide si toutes les classes sont désactivées', () => {
@@ -63,7 +69,7 @@ describe('entropy', () => {
     expect(entropy(wide)).toBeGreaterThan(entropy(long))
   })
 
-  it("ne dépasse jamais la longueur × log2(jeu)", () => {
+  it('ne dépasse jamais la longueur × log2(jeu)', () => {
     const value = 'aA1!'.repeat(5)
     expect(entropy(value)).toBeLessThanOrEqual(value.length * Math.log2(94))
   })
@@ -83,9 +89,9 @@ describe('poolEntropy', () => {
     expect(all).toBe(88)
     expect(poolEntropy({ length: 20, ...ALL })).toBe(Math.floor(20 * Math.log2(all)))
     expect(poolEntropy({ length: 40, ...ALL })).toBeGreaterThan(poolEntropy({ length: 20, ...ALL }))
-    expect(poolEntropy({ length: 20, lower: true, upper: false, digits: false, symbols: false })).toBe(
-      Math.floor(20 * Math.log2(lowerOnly)),
-    )
+    expect(
+      poolEntropy({ length: 20, lower: true, upper: false, digits: false, symbols: false }),
+    ).toBe(Math.floor(20 * Math.log2(lowerOnly)))
   })
 
   it('renvoie 0 quand aucune classe n est active', () => {
@@ -144,9 +150,9 @@ describe('generatePassword', () => {
   })
 
   it("n'utilise que les caractères des classes activées", () => {
-    expect(generatePassword({ length: 200, digits: true, upper: false, lower: false, symbols: false })).toMatch(
-      /^[0-9]+$/,
-    )
+    expect(
+      generatePassword({ length: 200, digits: true, upper: false, lower: false, symbols: false }),
+    ).toMatch(/^[0-9]+$/)
     expect(
       generatePassword({ length: 200, symbols: true, upper: false, lower: false, digits: false }),
     ).toMatch(/^[!@#$%^&*()\-_=+[\]{}|;:,.<>?]+$/)
@@ -158,7 +164,9 @@ describe('generatePassword', () => {
   })
 
   it('refuse de générer sans aucune classe', () => {
-    expect(() => generatePassword({ upper: false, lower: false, digits: false, symbols: false })).toThrow()
+    expect(() =>
+      generatePassword({ upper: false, lower: false, digits: false, symbols: false }),
+    ).toThrow()
   })
 
   it('produit des valeurs distinctes', () => {

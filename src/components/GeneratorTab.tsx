@@ -75,7 +75,11 @@ export default function GeneratorTab({ onUsePassword }: GeneratorTabProps) {
         ? 'text-amber-600'
         : 'text-emerald-600'
   const label =
-    bits < STRENGTH_THRESHOLDS.medium ? 'Faible' : bits < STRENGTH_THRESHOLDS.strong ? 'Moyen' : 'Fort'
+    bits < STRENGTH_THRESHOLDS.medium
+      ? 'Faible'
+      : bits < STRENGTH_THRESHOLDS.strong
+        ? 'Moyen'
+        : 'Fort'
 
   async function handleCopy() {
     if (!password) return

@@ -120,8 +120,7 @@ function LoginScreen({
     return () => clearInterval(id)
   }, [])
 
-  const remaining =
-    lockedUntil === null ? 0 : Math.max(0, Math.ceil((lockedUntil - now) / 1000))
+  const remaining = lockedUntil === null ? 0 : Math.max(0, Math.ceil((lockedUntil - now) / 1000))
 
   const lockedOut = remaining > 0
 
@@ -195,7 +194,9 @@ function LoginScreen({
         </div>
       )}
 
-      <div className={`flex flex-1 items-center justify-center ${isMobile ? 'px-6 py-10' : 'p-12'}`}>
+      <div
+        className={`flex flex-1 items-center justify-center ${isMobile ? 'px-6 py-10' : 'p-12'}`}
+      >
         <div className="w-full max-w-[360px] animate-rise">
           {isMobile && (
             <div className="mb-11 flex items-center gap-2.5">
@@ -373,27 +374,24 @@ export default function App() {
     setVault(next)
   }, [])
 
-  const handleSetup = useCallback(
-    async (masterPwd: string) => {
-      const kdf = DEFAULT_KDF
-      const salt = generateSalt()
-      const key = await deriveKey(masterPwd, salt, kdf)
-      const canary = await createCanary(key)
-      const fresh: VaultStore = {
-        v: VAULT_FORMAT_VERSION,
-        kdf,
-        salt: toBase64Salt(salt),
-        canary,
-        entries: [],
-      }
-      await saveVault(fresh)
-      keyRef.current = key
-      setVault(fresh)
-      setSearchIndex({})
-      setScreen('unlocked')
-    },
-    [],
-  )
+  const handleSetup = useCallback(async (masterPwd: string) => {
+    const kdf = DEFAULT_KDF
+    const salt = generateSalt()
+    const key = await deriveKey(masterPwd, salt, kdf)
+    const canary = await createCanary(key)
+    const fresh: VaultStore = {
+      v: VAULT_FORMAT_VERSION,
+      kdf,
+      salt: toBase64Salt(salt),
+      canary,
+      entries: [],
+    }
+    await saveVault(fresh)
+    keyRef.current = key
+    setVault(fresh)
+    setSearchIndex({})
+    setScreen('unlocked')
+  }, [])
 
   const handleLogin = useCallback(
     async (masterPwd: string) => {
@@ -482,9 +480,7 @@ export default function App() {
   const handleToggleFavorite = useCallback(
     async (id: string) => {
       if (!vault) return
-      const entries = vault.entries.map((e) =>
-        e.id === id ? { ...e, favorite: !e.favorite } : e,
-      )
+      const entries = vault.entries.map((e) => (e.id === id ? { ...e, favorite: !e.favorite } : e))
       await persist({ ...vault, entries })
     },
     [persist, vault],
@@ -496,18 +492,18 @@ export default function App() {
   }, [])
 
   /**
- * Re-encrypts the entire vault under a new master password.
- *
- * This is the recovery path when a machine may have been compromised: rotate
- * the key, and every stored secret is rewritten under a fresh salt. Without it
- * a vault is permanent once created — there was previously no way to change the
- * master password at all.
- */
-const handleChangeMasterPassword = useCallback(
-  async (currentPwd: string, newPwd: string) => {
+   * Re-encrypts the entire vault under a new master password.
+   *
+   * This is the recovery path when a machine may have been compromised: rotate
+   * the key, and every stored secret is rewritten under a fresh salt. Without it
+   * a vault is permanent once created — there was previously no way to change the
+   * master password at all.
+   */
+  const handleChangeMasterPassword = useCallback(async (currentPwd: string, newPwd: string) => {
     const diagnosis = diagnoseVault(await loadVault())
     if (diagnosis.kind !== 'current') throw new Error('Aucun coffre à ré-chiffrer.')
-    if (newPwd.length < 8) throw new Error('Le nouveau mot de passe doit faire au moins 8 caractères.')
+    if (newPwd.length < 8)
+      throw new Error('Le nouveau mot de passe doit faire au moins 8 caractères.')
     if (currentPwd === newPwd) throw new Error('Le nouveau mot de passe doit être différent.')
 
     const stored = diagnosis.store
@@ -534,11 +530,9 @@ const handleChangeMasterPassword = useCallback(
     keyRef.current = newKey
     setVault(rotated)
     setSearchIndex(await buildSearchIndex(entries, newKey))
-  },
-  [],
-)
+  }, [])
 
-const handleReset = useCallback(async () => {
+  const handleReset = useCallback(async () => {
     clearKey(keyRef)
     await deleteVault()
     await clearUnlockAttempts()

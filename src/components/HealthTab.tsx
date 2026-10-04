@@ -33,7 +33,8 @@ type Filter = 'all' | 'pwned' | 'weak' | 'reused'
 
 function healthScore(pwned: boolean, bits: number, reused: boolean): number {
   if (pwned) return reused ? 10 : 15
-  let score = bits >= STRENGTH_THRESHOLDS.strong ? 100 : bits >= STRENGTH_THRESHOLDS.medium ? 70 : 40
+  let score =
+    bits >= STRENGTH_THRESHOLDS.strong ? 100 : bits >= STRENGTH_THRESHOLDS.medium ? 70 : 40
   if (reused) score -= 20
   return Math.max(0, score)
 }
@@ -145,8 +146,8 @@ export default function HealthTab({
     <div className="mx-auto flex max-w-2xl animate-rise flex-col gap-5">
       <p className="text-sm text-inktext-muted">
         Analyse locale de la robustesse et de la réutilisation
-        {hibpEnabled ? ', complétée par une vérification k-anonymat des fuites.' : '.'}{' '}
-        Les mots de passe ne quittent l&apos;appareil pendant l&apos;analyse.
+        {hibpEnabled ? ', complétée par une vérification k-anonymat des fuites.' : '.'} Les mots de
+        passe ne quittent l&apos;appareil pendant l&apos;analyse.
       </p>
 
       <div className="flex items-center gap-5 rounded-xl bg-white p-6 shadow-card">
@@ -212,7 +213,13 @@ export default function HealthTab({
           const d = diags[entry.id]
           const meta = searchIndex[entry.id]
           const isPwned = (d?.pwnedCount ?? 0) > 0
-          const grade = d ? d.entropy >= STRENGTH_THRESHOLDS.strong ? 'strong' : d.entropy >= STRENGTH_THRESHOLDS.medium ? 'medium' : 'weak' : 'strong'
+          const grade = d
+            ? d.entropy >= STRENGTH_THRESHOLDS.strong
+              ? 'strong'
+              : d.entropy >= STRENGTH_THRESHOLDS.medium
+                ? 'medium'
+                : 'weak'
+            : 'strong'
           const isWeak = !!d && !isPwned && grade === 'weak'
           const isMedium = !!d && !isPwned && grade === 'medium'
           const isReused = !!d && (d.reusedOn ?? 0) > 0
@@ -242,17 +249,29 @@ export default function HealthTab({
                     </span>
                   )}
                   {isWeak && (
-                    <span className="text-red-600" title="Mot de passe faible" aria-label="Mot de passe faible">
+                    <span
+                      className="text-red-600"
+                      title="Mot de passe faible"
+                      aria-label="Mot de passe faible"
+                    >
                       <AlertTriangle size={14} />
                     </span>
                   )}
                   {isMedium && (
-                    <span className="text-amber-600" title="Mot de passe moyen" aria-label="Mot de passe moyen">
+                    <span
+                      className="text-amber-600"
+                      title="Mot de passe moyen"
+                      aria-label="Mot de passe moyen"
+                    >
                       <AlertTriangle size={14} />
                     </span>
                   )}
                   {isReused && (
-                    <span className="text-amber-600" title="Mot de passe réutilisé" aria-label="Mot de passe réutilisé">
+                    <span
+                      className="text-amber-600"
+                      title="Mot de passe réutilisé"
+                      aria-label="Mot de passe réutilisé"
+                    >
                       <Repeat2 size={14} />
                     </span>
                   )}
@@ -261,8 +280,16 @@ export default function HealthTab({
                       <ShieldCheck size={15} strokeWidth={2.5} />
                     </span>
                   )}
-                  {d && <span className="w-8 text-right text-xs font-bold tabular-nums text-inktext-faint">{d.score}%</span>}
-                  {isOpen ? <ChevronUp size={14} className="text-inktext-faint" /> : <ChevronDown size={14} className="text-inktext-faint" />}
+                  {d && (
+                    <span className="w-8 text-right text-xs font-bold tabular-nums text-inktext-faint">
+                      {d.score}%
+                    </span>
+                  )}
+                  {isOpen ? (
+                    <ChevronUp size={14} className="text-inktext-faint" />
+                  ) : (
+                    <ChevronDown size={14} className="text-inktext-faint" />
+                  )}
                 </div>
               </button>
 
@@ -283,7 +310,8 @@ export default function HealthTab({
                       <p className="mb-1 flex items-center gap-1.5 font-semibold">
                         <AlertTriangle size={12} /> Mot de passe faible
                       </p>
-                      Entropie estimée : <strong>{d.entropy} bits</strong> (seuil robuste : 80 bits).
+                      Entropie estimée : <strong>{d.entropy} bits</strong> (seuil robuste : 80
+                      bits).
                     </div>
                   )}
                   {isMedium && (
@@ -300,9 +328,12 @@ export default function HealthTab({
                       <p className="mb-1 flex items-center gap-1.5 font-semibold">
                         <AlertTriangle size={12} /> Mot de passe réutilisé
                       </p>
-                      Utilisé sur <strong>{d.reusedOn} autre{d.reusedOn > 1 ? 's' : ''} compte
-                      {d.reusedOn > 1 ? 's' : ''}</strong>. Si l&apos;un de ces services est
-                      compromis, tous vos comptes le sont.
+                      Utilisé sur{' '}
+                      <strong>
+                        {d.reusedOn} autre{d.reusedOn > 1 ? 's' : ''} compte
+                        {d.reusedOn > 1 ? 's' : ''}
+                      </strong>
+                      . Si l&apos;un de ces services est compromis, tous vos comptes le sont.
                     </div>
                   )}
                   {isOk && (
