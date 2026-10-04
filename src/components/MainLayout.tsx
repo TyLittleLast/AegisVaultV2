@@ -45,6 +45,7 @@ interface MainLayoutProps {
   onFixEntry: (entryId: string) => void | Promise<void>
   onToggleFavorite: (id: string) => void | Promise<void>
   onSettingsChange: (s: AppSettings) => void | Promise<void>
+  onChangeMasterPassword: (currentPwd: string, newPwd: string) => Promise<void>
   onReset: () => void | Promise<void>
   onImport: (store: VaultStore) => void | Promise<void>
   onRevealSecrets: (entryId: string) => Promise<{ password: string; url: string }>
@@ -222,6 +223,7 @@ export default function MainLayout({
   onFixEntry,
   onToggleFavorite,
   onSettingsChange,
+  onChangeMasterPassword,
   onReset,
   onImport,
   onRevealSecrets,
@@ -567,6 +569,7 @@ export default function MainLayout({
                 settings={settings}
                 vault={vault}
                 onSettingsChange={onSettingsChange}
+                onChangeMasterPassword={onChangeMasterPassword}
                 onReset={onReset}
                 onImport={onImport}
               />

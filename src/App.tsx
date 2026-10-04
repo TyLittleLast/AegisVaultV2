@@ -16,6 +16,7 @@ import {
   decryptEntryPassword,
   decryptEntryUrl,
   encryptEntry,
+  reencryptEntry,
 } from './services/vaultCrypto'
 import { diagnoseVault } from './services/vaultSchema'
 import {
@@ -497,7 +498,50 @@ export default function App() {
     await saveSettings(next)
   }, [])
 
-  const handleReset = useCallback(async () => {
+  /**
+ * Re-encrypts the entire vault under a new master password.
+ *
+ * This is the recovery path when a machine may have been compromised: rotate
+ * the key, and every stored secret is rewritten under a fresh salt. Without it
+ * a vault is permanent once created — there was previously no way to change the
+ * master password at all.
+ */
+const handleChangeMasterPassword = useCallback(
+  async (currentPwd: string, newPwd: string) => {
+    const diagnosis = diagnoseVault(await loadVault())
+    if (diagnosis.kind !== 'current') throw new Error('Aucun coffre à ré-chiffrer.')
+    if (newPwd.length < 8) throw new Error('Le nouveau mot de passe doit faire au moins 8 caractères.')
+    if (currentPwd === newPwd) throw new Error('Le nouveau mot de passe doit être différent.')
+
+    const stored = diagnosis.store
+    const oldKey = await deriveKey(currentPwd, fromBase64Salt(stored.salt), stored.kdf)
+    if (!(await verifyCanary(stored.canary, oldKey))) {
+      throw new Error('Mot de passe actuel incorrect.')
+    }
+
+    const salt = generateSalt()
+    const newKey = await deriveKey(newPwd, salt, stored.kdf)
+    const entries = await Promise.all(
+      stored.entries.map((entry) => reencryptEntry(entry, oldKey, newKey)),
+    )
+    const rotated: VaultStore = {
+      v: stored.v,
+      kdf: stored.kdf,
+      salt: toBase64Salt(salt),
+      canary: await createCanary(newKey),
+      entries,
+    }
+
+    await saveVault(rotated)
+    clearKey({ current: oldKey })
+    keyRef.current = newKey
+    setVault(rotated)
+    setSearchIndex(await buildSearchIndex(entries, newKey))
+  },
+  [],
+)
+
+const handleReset = useCallback(async () => {
     clearKey(keyRef)
     await deleteVault()
     await clearUnlockAttempts()
@@ -608,6 +652,7 @@ export default function App() {
       onFixEntry={handleFixEntry}
       onToggleFavorite={handleToggleFavorite}
       onSettingsChange={handleSettingsChange}
+      onChangeMasterPassword={handleChangeMasterPassword}
       onReset={handleReset}
       onImport={handleImport}
       onRevealSecrets={revealSecrets}
