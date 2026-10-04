@@ -1,12 +1,14 @@
 import { useRef, useState } from 'react'
-import { Download, Upload, Trash2, AlertTriangle, ShieldCheck, Globe } from 'lucide-react'
+import { Download, Upload, Trash2, AlertTriangle, ShieldCheck, Globe, KeyRound } from 'lucide-react'
 import { isVaultStore } from '../services/vaultSchema'
+import { STRENGTH_THRESHOLDS, entropy as calcEntropy } from '../utils/password'
 import type { AppSettings, VaultStore } from '../types/vault'
 
 interface SettingsTabProps {
   settings: AppSettings
   vault: VaultStore | null
   onSettingsChange: (s: AppSettings) => void | Promise<void>
+  onChangeMasterPassword: (currentPwd: string, newPwd: string) => Promise<void>
   onReset: () => void | Promise<void>
   onImport: (store: VaultStore) => void | Promise<void>
 }
@@ -17,15 +19,45 @@ export default function SettingsTab({
   settings,
   vault,
   onSettingsChange,
+  onChangeMasterPassword,
   onReset,
   onImport,
 }: SettingsTabProps) {
   const [confirmReset, setConfirmReset] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
+  const [rotating, setRotating] = useState(false)
+  const [currentPwd, setCurrentPwd] = useState('')
+  const [newPwd, setNewPwd] = useState('')
+  const [confirmPwd, setConfirmPwd] = useState('')
+  const [rotateError, setRotateError] = useState<string | null>(null)
+  const [rotateDone, setRotateDone] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
+
+  const newBits = calcEntropy(newPwd)
+  const newPwdStrong = newPwd.length >= 8 && newBits >= STRENGTH_THRESHOLDS.medium
 
   async function update(patch: Partial<AppSettings>) {
     await onSettingsChange({ ...settings, ...patch })
+  }
+
+  async function handleRotate() {
+    setRotateError(null)
+    if (newPwd !== confirmPwd) {
+      setRotateError('Les deux mots de passe ne correspondent pas.')
+      return
+    }
+    setRotating(true)
+    try {
+      await onChangeMasterPassword(currentPwd, newPwd)
+      setCurrentPwd('')
+      setNewPwd('')
+      setConfirmPwd('')
+      setRotateDone(true)
+    } catch (err: unknown) {
+      setRotateError(err instanceof Error ? err.message : 'Rotation impossible.')
+    } finally {
+      setRotating(false)
+    }
   }
 
   function handleExport() {
@@ -173,6 +205,77 @@ export default function SettingsTab({
           <p className="rounded-xl bg-red-50 px-3 py-2.5 text-xs leading-relaxed text-red-700">
             {importError}
           </p>
+        )}
+      </section>
+
+      <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-sm">
+        <h2 className="flex items-center gap-2 text-sm font-medium text-inktext">
+          <KeyRound size={15} className="text-inktext-muted" />
+          Changer le mot de passe maître
+        </h2>
+        <p className="text-xs leading-relaxed text-inktext-faint">
+          Chaque champ du coffre est déchiffré puis re-chiffré avec une nouvelle clé et un
+          nouveau sel, entièrement sur cet appareil. À utiliser si vous pensez que l&apos;ordinateur
+          ou le mot de passe actuel ont pu être compromis.
+        </p>
+
+        {rotateDone ? (
+          <div className="flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2.5 text-xs leading-relaxed text-emerald-800">
+            <ShieldCheck size={14} className="mt-0.5 shrink-0" />
+            <span>Mot de passe maître mis à jour. Le coffre est re-chiffré.</span>
+          </div>
+        ) : (
+          <>
+            <div className="flex flex-col gap-2">
+              <input
+                type="password"
+                value={currentPwd}
+                onChange={(e) => setCurrentPwd(e.target.value)}
+                placeholder="Mot de passe actuel"
+                autoComplete="current-password"
+                aria-label="Mot de passe maître actuel"
+                className="cursor-text rounded-xl bg-cream px-3 py-2 text-sm outline-none placeholder:text-inktext-faint"
+              />
+              <input
+                type="password"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+                placeholder="Nouveau mot de passe (8 caractères min.)"
+                autoComplete="new-password"
+                aria-label="Nouveau mot de passe maître"
+                className="cursor-text rounded-xl bg-cream px-3 py-2 text-sm outline-none placeholder:text-inktext-faint"
+              />
+              <input
+                type="password"
+                value={confirmPwd}
+                onChange={(e) => setConfirmPwd(e.target.value)}
+                placeholder="Confirmer le nouveau mot de passe"
+                autoComplete="new-password"
+                aria-label="Confirmer le nouveau mot de passe maître"
+                className="cursor-text rounded-xl bg-cream px-3 py-2 text-sm outline-none placeholder:text-inktext-faint"
+              />
+            </div>
+
+            {newPwd && !newPwdStrong && (
+              <p className="text-xs text-amber-700">
+                Recommandé : au moins 8 caractères et une entropie supérieure à{' '}
+                {STRENGTH_THRESHOLDS.medium} bits (actuellement {newBits}).
+              </p>
+            )}
+            {rotateError && (
+              <p className="rounded-xl bg-red-50 px-3 py-2.5 text-xs leading-relaxed text-red-700">
+                {rotateError}
+              </p>
+            )}
+
+            <button
+              onClick={() => void handleRotate()}
+              disabled={rotating || !currentPwd || !newPwd || !newPwdStrong}
+              className="flex w-fit cursor-pointer items-center gap-2 rounded-xl bg-cream px-4 py-2 text-sm text-inktext-muted transition-colors hover:text-inktext disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {rotating ? 'Re-chiffrement…' : 'Changer le mot de passe maître'}
+            </button>
+          </>
         )}
       </section>
 
