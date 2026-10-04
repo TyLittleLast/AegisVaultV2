@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import { checkPasswordBreach } from '../services/hibpService'
 import { STRENGTH_THRESHOLDS, entropy as calcEntropy } from '../utils/password'
+import StorageCard from './StorageCard'
+import type { StorageDurability } from '../services/storageService'
 import type { EntrySearchMeta, VaultEntry } from '../types/vault'
 
 interface HealthTabProps {
@@ -20,6 +22,9 @@ interface HealthTabProps {
   hibpEnabled: boolean
   revealAll: () => Promise<Record<string, string>>
   onFixEntry: (entryId: string) => void | Promise<void>
+  durability: StorageDurability | null
+  requestingPersist: boolean
+  onRequestPersist: () => void
 }
 
 interface EntryDiag {
@@ -45,6 +50,9 @@ export default function HealthTab({
   hibpEnabled,
   revealAll,
   onFixEntry,
+  durability,
+  requestingPersist,
+  onRequestPersist,
 }: HealthTabProps) {
   const [diags, setDiags] = useState<Record<string, EntryDiag>>({})
   const [running, setRunning] = useState(false)
@@ -149,6 +157,12 @@ export default function HealthTab({
         {hibpEnabled ? ', complétée par une vérification k-anonymat des fuites.' : '.'} Les mots de
         passe ne quittent l&apos;appareil pendant l&apos;analyse.
       </p>
+
+      <StorageCard
+        durability={durability}
+        requesting={requestingPersist}
+        onRequestPersist={onRequestPersist}
+      />
 
       <div className="flex items-center gap-5 rounded-xl bg-white p-6 shadow-card">
         <div className="text-5xl font-semibold tabular-nums text-ink">

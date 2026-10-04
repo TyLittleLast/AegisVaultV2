@@ -69,6 +69,8 @@ export default function SettingsTab({
     a.download = `aegisvault-coffre-${new Date().toISOString().slice(0, 10)}.json`
     a.click()
     URL.revokeObjectURL(url)
+    // Recorded so the user can see how stale their only off-device copy is.
+    void update({ lastExportAt: Date.now() })
   }
 
   async function handleImportFile(file: File) {
@@ -174,6 +176,11 @@ export default function SettingsTab({
         <p className="text-xs leading-relaxed text-inktext-faint">
           Le fichier exporté ne contient que des données chiffrées. Le mot de passe maître reste
           nécessaire pour le restaurer — et pour y accéder sur un autre appareil.
+        </p>
+        <p className="text-xs text-inktext-muted">
+          {settings.lastExportAt
+            ? `Dernière sauvegarde exportée le ${new Date(settings.lastExportAt).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })}.`
+            : 'Aucune sauvegarde exportée pour l’instant. C’est votre seule copie hors de cet appareil.'}
         </p>
         <div className="flex flex-wrap gap-2">
           <button

@@ -32,6 +32,9 @@ import {
   recordUnlockFailure,
   saveSettings,
   saveVault,
+  readStorageDurability,
+  requestPersistentStorage,
+  type StorageDurability,
   type UnlockAttempts,
 } from './services/storageService'
 import MainLayout from './components/MainLayout'
@@ -339,6 +342,22 @@ export default function App() {
   const [searchIndex, setSearchIndex] = useState<Record<string, EntrySearchMeta>>({})
   const [settings, setSettings] = useState<AppSettings>(DEFAULT_SETTINGS)
   const [attempts, setAttempts] = useState<UnlockAttempts>(EMPTY_ATTEMPTS)
+  const [durability, setDurability] = useState<StorageDurability | null>(null)
+  const [requestingPersist, setRequestingPersist] = useState(false)
+
+  const refreshDurability = useCallback(async () => {
+    setDurability(await readStorageDurability())
+  }, [])
+
+  const handleRequestPersist = useCallback(async () => {
+    setRequestingPersist(true)
+    try {
+      await requestPersistentStorage()
+      await refreshDurability()
+    } finally {
+      setRequestingPersist(false)
+    }
+  }, [refreshDurability])
 
   const lock = useCallback(() => {
     clearKey(keyRef)
@@ -361,13 +380,31 @@ export default function App() {
       const [raw, loadedSettings] = await Promise.all([loadVault(), loadSettings()])
       setSettings(loadedSettings)
       setAttempts(await loadUnlockAttempts())
+      await refreshDurability()
       const diagnosis = diagnoseVault(raw)
       if (diagnosis.kind === 'empty') setScreen('setup')
       else if (diagnosis.kind === 'legacy') setScreen('legacy')
       else if (diagnosis.kind === 'corrupt') setScreen('corrupt')
       else setScreen('login')
     })()
-  }, [])
+  }, [refreshDurability])
+
+  /**
+   * Re-read durability, and ask once, when the vault becomes reachable.
+   *
+   * Browsers grant persistent storage far more readily to an origin the user
+   * has just engaged with than on a cold page load. The outcome is surfaced in
+   * the Health tab either way, so this is an attempt, not a silent assumption.
+   */
+  useEffect(() => {
+    if (screen !== 'unlocked') return
+    void (async () => {
+      await refreshDurability()
+      if (!(await readStorageDurability()).persisted) {
+        await handleRequestPersist()
+      }
+    })()
+  }, [screen, refreshDurability, handleRequestPersist])
 
   const persist = useCallback(async (next: VaultStore) => {
     await saveVault(next)
@@ -648,6 +685,9 @@ export default function App() {
       onImport={handleImport}
       onRevealSecrets={revealSecrets}
       onRevealAll={revealAllForAudit}
+      durability={durability}
+      requestingPersist={requestingPersist}
+      onRequestPersist={() => void handleRequestPersist()}
     />
   )
 }

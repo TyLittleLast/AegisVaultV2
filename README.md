@@ -140,6 +140,31 @@ d'exposition sur un poste partagé.
 
 ---
 
+## Durabilité du stockage local
+
+Le coffre vit dans IndexedDB, sur votre machine, et **n'existe nulle part ailleurs**. C'est la
+conséquence directe de l'absence de serveur — et le seul vrai risque de cette architecture : il n'y a
+qu'une seule copie.
+
+Trois mesures, dont la première est une demande et non une garantie :
+
+1. **`navigator.storage.persist()`** est demandé au déverrouillage, quand le navigateur est le plus
+   favorable, et l'onglet **Santé** affiche l'état réel. Un refus est montré franchement, jamais
+   silencieusement avalé : un refus ignoré devient, plus tard, indiscernable d'une perte de données.
+2. **L'onglet Santé affiche l'espace utilisé** via `navigator.storage.estimate()`, pour voir la
+   marge avant qu'elle ne devienne un problème.
+3. **La date du dernier export est mémorisée** et affichée dans les réglages. L'export chiffre déjà
+   tout le coffre ; c'est la seule sauvegarde hors machine, donc sa fraîcheur doit être visible.
+
+Installer l'application comme PWA complète la histoire : sur mobile, un onglet non installé peut être
+purgé après quelques jours d'inactivité, alors que les données d'une PWA installée sont liées à son
+conteneur applicatif.
+
+> `persist()` traite l'éviction **accidentielle**. Il ne protège pas de la perte de machine. Pour un
+> coffre sans serveur, l'export reste la seule vraie assurance — d'où son affichage.
+
+---
+
 ## Installation
 
 Prérequis : **Node.js ≥ 20**.

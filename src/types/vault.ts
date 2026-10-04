@@ -64,6 +64,8 @@ export interface AppSettings {
   lockOnBlur: boolean
   /** Breach checks are opt-in. When false the app makes no network request at all. */
   hibpEnabled: boolean
+  /** Epoch ms of the last encrypted export, so backup staleness is visible. */
+  lastExportAt?: number
 }
 
 export interface EntryInput {
