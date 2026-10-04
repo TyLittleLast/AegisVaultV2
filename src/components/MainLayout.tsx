@@ -1,60 +1,63 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
-  Vault, KeyRound, HeartPulse, Settings, Lock, Plus, Search,
-  ShieldCheck, ShieldAlert, AlertTriangle, Loader, Trash2,
-  Star, ChevronLeft,
-  PanelLeftClose, PanelLeftOpen,
+  Vault,
+  KeyRound,
+  HeartPulse,
+  Settings,
+  Lock,
+  Plus,
+  Search,
+  ShieldCheck,
+  AlertTriangle,
+  Trash2,
+  Star,
+  ChevronLeft,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from 'lucide-react'
-import { checkPasswordBreach } from '../services/hibpService'
-import ServiceLogo from './ServiceLogo'
+import ServiceAvatar from './ServiceAvatar'
 import VaultDetailPanel from './VaultDetailPanel'
 import GeneratorTab from './GeneratorTab'
 import HealthTab from './HealthTab'
 import SettingsTab from './SettingsTab'
 import AddEntryModal from './AddEntryModal'
-import { useIsMobile } from '../App'
-import type { VaultEntry, AppSettings, VaultStore } from '../types/vault'
+import { useIsMobile } from '../hooks/useIsMobile'
+import { STRENGTH_THRESHOLDS, grade } from '../utils/password'
+import type {
+  AppSettings,
+  EntryInput,
+  EntrySearchMeta,
+  VaultEntry,
+  VaultStore,
+} from '../types/vault'
 
 type NavTab = 'vault' | 'generator' | 'health' | 'settings'
 type Filter = 'all' | 'favorites' | 'weak'
 type MobileView = 'list' | 'detail'
 
 interface MainLayoutProps {
-  entries: VaultEntry[]
-  decryptedPasswords: Record<string, string>
-  isUnlocked: boolean
-  settings: AppSettings
   vault: VaultStore | null
+  searchIndex: Record<string, EntrySearchMeta>
+  settings: AppSettings
   onLock: () => void
-  onAddEntry: (data: { service: string; url: string; username: string; password: string }) => void
-  onDeleteEntry: (id: string) => void
-  onFixEntry: (entryId: string, newPassword: string) => void
-  onToggleFavorite: (id: string) => void
-  onSettingsChange: (s: AppSettings) => void
-  onReset: () => void
-  onImport: (vault: VaultStore) => void
+  onAddEntry: (input: EntryInput) => void | Promise<void>
+  onDeleteEntry: (id: string) => void | Promise<void>
+  onFixEntry: (entryId: string) => void | Promise<void>
+  onToggleFavorite: (id: string) => void | Promise<void>
+  onSettingsChange: (s: AppSettings) => void | Promise<void>
+  onReset: () => void | Promise<void>
+  onImport: (store: VaultStore) => void | Promise<void>
+  onRevealSecrets: (entryId: string) => Promise<{ password: string; url: string }>
+  onRevealAll: () => Promise<Record<string, string>>
 }
 
-function getEntropy(password: string) {
-  let pool = 0
-  if (/[a-z]/.test(password)) pool += 26
-  if (/[A-Z]/.test(password)) pool += 26
-  if (/[0-9]/.test(password)) pool += 10
-  if (/[^a-zA-Z0-9]/.test(password)) pool += 32
-  return pool > 0 ? Math.floor(password.length * Math.log2(pool)) : 0
-}
-
-function strengthMeta(entropy: number, isPwned?: boolean) {
-  if (isPwned) return { label: 'Compromis', dot: 'bg-red-600' }
-  if (entropy >= 80) return { label: 'Fort', dot: 'bg-green-600' }
-  if (entropy >= 50) return { label: 'Moyen', dot: 'bg-amber-600' }
-  return { label: 'Faible', dot: 'bg-red-600' }
-}
-
-function formatRelativeDate(isoDate?: string) {
+function formatRelativeDate(isoDate?: string): string {
   if (!isoDate) return '—'
-  const diff = Date.now() - new Date(isoDate).getTime()
+  const parsed = Date.parse(isoDate)
+  if (Number.isNaN(parsed)) return '—'
+  const diff = Date.now() - parsed
   const days = Math.floor(diff / 86_400_000)
+  if (days < 0) return 'À venir'
   if (days === 0) return 'Auj.'
   if (days < 7) return `${days} j.`
   const weeks = Math.floor(days / 7)
@@ -65,12 +68,17 @@ function formatRelativeDate(isoDate?: string) {
 }
 
 function SummaryStat({
-  icon: Icon, tone, label, value,
+  icon: Icon,
+  tone,
+  label,
+  value,
 }: {
-  icon: React.ElementType; tone: 'green' | 'red' | 'amber'; label: string; value: string
+  icon: React.ElementType
+  tone: 'green' | 'amber'
+  label: string
+  value: string
 }) {
-  const toneClass =
-    tone === 'red' ? 'text-red-600' : tone === 'amber' ? 'text-amber-600' : 'text-green-600'
+  const toneClass = tone === 'amber' ? 'text-amber-600' : 'text-emerald-600'
   return (
     <div title={label} className="flex shrink-0 items-center gap-1">
       <Icon size={14} className={toneClass} />
@@ -80,28 +88,20 @@ function SummaryStat({
 }
 
 function VaultRow({
-  entry, password, isSelected, onSelect, onDelete,
+  entry,
+  meta,
+  isSelected,
+  onSelect,
+  onDelete,
 }: {
   entry: VaultEntry
-  password: string
+  meta: EntrySearchMeta | undefined
   isSelected: boolean
   onSelect: (id: string) => void
   onDelete: (id: string) => void
 }) {
-  const [hibp, setHibp] = useState<{ isPwned: boolean; count: number } | null>(null)
-  const [checking, setChecking] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const entropy = getEntropy(password)
-  const strength = strengthMeta(entropy, hibp?.isPwned)
-
-  useEffect(() => {
-    if (!password) return
-    setChecking(true)
-    checkPasswordBreach(password)
-      .then(setHibp)
-      .catch(() => setHibp(null))
-      .finally(() => setChecking(false))
-  }, [password])
+  const strength = grade(entry.entropy ?? 0)
 
   return (
     <div
@@ -110,40 +110,50 @@ function VaultRow({
         isSelected ? 'bg-white shadow-sm' : 'hover:bg-white/70'
       }`}
     >
-      <ServiceLogo service={entry.service} url={entry.url} size={32} />
+      <ServiceAvatar label={meta?.service ?? entry.id} size={32} />
 
       <div className="min-w-0 flex-1">
-        <div className="truncate text-sm font-medium">{entry.service}</div>
-        <div className="truncate text-xs text-inktext-faint">{entry.username}</div>
+        <div className="truncate text-sm font-medium">{meta?.service ?? 'Entrée illisible'}</div>
+        <div className="truncate text-xs text-inktext-faint">{meta?.username ?? '—'}</div>
       </div>
 
       {entry.favorite && <Star size={13} className="text-peach" fill="#E8927C" />}
 
-      {checking
-        ? <Loader size={12} className="shrink-0 animate-spin text-inktext-faint" />
-        : <span title={strength.label} className={`h-2 w-2 shrink-0 rounded-full ${strength.dot}`} />
-      }
+      <span
+        title={`Entropie : ${strength.label}`}
+        className={`h-2 w-2 shrink-0 rounded-full ${strength.bar}`}
+      />
 
       <span className="hidden w-12 shrink-0 text-right text-[11.5px] text-inktext-faint sm:block">
         {formatRelativeDate(entry.updatedAt)}
       </span>
 
       {confirmingDelete ? (
-        <div className="flex gap-1" onClick={e => e.stopPropagation()}>
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={() => onDelete(entry.id)}
             className="cursor-pointer rounded-[7px] border-0 bg-red-600 px-2 py-1 text-[11.5px] font-semibold text-white"
-          >✓</button>
+            aria-label="Confirmer la suppression"
+          >
+            ✓
+          </button>
           <button
             onClick={() => setConfirmingDelete(false)}
             className="cursor-pointer rounded-[7px] border border-border bg-transparent px-2 py-1 text-[11.5px] text-inktext-muted"
-          >✕</button>
+            aria-label="Annuler"
+          >
+            ✕
+          </button>
         </div>
       ) : (
         <button
-          onClick={e => { e.stopPropagation(); setConfirmingDelete(true) }}
-          className="flex shrink-0 cursor-pointer border-0 bg-transparent p-1 text-inktext-faint opacity-0 transition-colors duration-150 hover:text-inktext group-hover:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation()
+            setConfirmingDelete(true)
+          }}
+          className="flex shrink-0 cursor-pointer border-0 bg-transparent p-1 text-inktext-faint opacity-0 transition-colors duration-150 hover:text-inktext group-hover:opacity-100 focus-visible:opacity-100"
           title="Supprimer"
+          aria-label={`Supprimer ${meta?.service ?? 'l’entrée'}`}
         >
           <Trash2 size={13} />
         </button>
@@ -155,12 +165,10 @@ function VaultRow({
 function BottomTabBar({
   activeTab,
   onTabChange,
-  alertBadge,
   onLock,
 }: {
   activeTab: NavTab
   onTabChange: (tab: NavTab) => void
-  alertBadge: number
   onLock: () => void
 }) {
   const tabs: Array<{ id: NavTab; icon: React.ElementType; label: string }> = [
@@ -179,12 +187,12 @@ function BottomTabBar({
             className={`relative flex flex-1 flex-col items-center gap-1 border-0 bg-transparent px-2 py-2 text-[10px] font-medium tracking-[0.02em] transition-colors duration-150 ${active ? 'text-ink' : 'text-inktext-faint'}`}
             onClick={() => onTabChange(id)}
             aria-label={label}
+            aria-current={active ? 'page' : undefined}
           >
-            <div className={`relative flex h-8 w-10 items-center justify-center rounded-xl ${active ? 'bg-white shadow-sm' : ''}`}>
+            <div
+              className={`relative flex h-8 w-10 items-center justify-center rounded-xl ${active ? 'bg-white shadow-sm' : ''}`}
+            >
               <Icon size={18} strokeWidth={active ? 2 : 1.6} />
-              {id === 'health' && alertBadge > 0 && (
-                <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-red-600" />
-              )}
             </div>
             <span>{label}</span>
           </button>
@@ -205,8 +213,19 @@ function BottomTabBar({
 }
 
 export default function MainLayout({
-  entries, decryptedPasswords, settings, vault,
-  onLock, onAddEntry, onDeleteEntry, onFixEntry, onToggleFavorite, onSettingsChange, onReset, onImport,
+  vault,
+  searchIndex,
+  settings,
+  onLock,
+  onAddEntry,
+  onDeleteEntry,
+  onFixEntry,
+  onToggleFavorite,
+  onSettingsChange,
+  onReset,
+  onImport,
+  onRevealSecrets,
+  onRevealAll,
 }: MainLayoutProps) {
   const isMobile = useIsMobile()
   const [activeTab, setActiveTab] = useState<NavTab>('vault')
@@ -216,53 +235,53 @@ export default function MainLayout({
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
   const [mobileView, setMobileView] = useState<MobileView>('list')
-  const [securitySummary, setSecuritySummary] = useState({ protectedCount: 0, compromisedCount: 0, reviewCount: 0 })
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window === 'undefined') return true
     return localStorage.getItem('av-sidebar') !== 'closed'
   })
 
+  const entries = useMemo(() => vault?.entries ?? [], [vault])
+
+  /**
+   * Strength counts come from the cleartext `entropy` field stored alongside
+   * each entry, so rendering the list decrypts nothing and issues no request.
+   * Breach status is only known after the explicit audit in the Health tab.
+   */
+  const strengthCounts = useMemo(() => {
+    let protectedCount = 0
+    for (const entry of entries) {
+      if ((entry.entropy ?? 0) >= STRENGTH_THRESHOLDS.strong) protectedCount++
+    }
+    return { protectedCount, reviewCount: entries.length - protectedCount }
+  }, [entries])
+
   function toggleSidebar() {
-    setSidebarOpen(open => {
+    setSidebarOpen((open) => {
       const next = !open
       localStorage.setItem('av-sidebar', next ? 'open' : 'closed')
       return next
     })
   }
 
-  useEffect(() => {
-    let active = true
-    const run = async () => {
-      const results = await Promise.all(entries.map(async entry => {
-        const password = decryptedPasswords[entry.id] ?? ''
-        const entropy = getEntropy(password)
-        const weak = entropy < 80
-        if (!password) return { compromised: false, weak: true }
-        try { const b = await checkPasswordBreach(password); return { compromised: b.isPwned, weak } }
-        catch { return { compromised: false, weak } }
-      }))
-      if (!active) return
-      setSecuritySummary({
-        protectedCount: results.filter(r => !r.compromised && !r.weak).length,
-        compromisedCount: results.filter(r => r.compromised).length,
-        reviewCount: results.filter(r => !r.compromised && r.weak).length,
-      })
-    }
-    run()
-    return () => { active = false }
-  }, [entries, decryptedPasswords])
-
   const filtered = useMemo(() => {
     let list = entries
-    if (filter === 'favorites') list = list.filter(e => e.favorite)
-    if (filter === 'weak') list = list.filter(e => getEntropy(decryptedPasswords[e.id] ?? '') < 80)
+    if (filter === 'favorites') list = list.filter((e) => e.favorite)
+    if (filter === 'weak') {
+      list = list.filter((e) => (e.entropy ?? 0) < STRENGTH_THRESHOLDS.strong)
+    }
     const q = query.trim().toLowerCase()
-    if (q) list = list.filter(e => e.service.toLowerCase().includes(q) || e.username.toLowerCase().includes(q))
+    if (q) {
+      list = list.filter((e) => {
+        const meta = searchIndex[e.id]
+        return (
+          meta?.service.toLowerCase().includes(q) || meta?.username.toLowerCase().includes(q)
+        )
+      })
+    }
     return list
-  }, [entries, decryptedPasswords, filter, query])
+  }, [entries, searchIndex, filter, query])
 
-  const selectedEntry = selectedId ? entries.find(e => e.id === selectedId) ?? null : null
-  const alertBadge = securitySummary.compromisedCount + securitySummary.reviewCount
+  const selectedEntry = selectedId ? (entries.find((e) => e.id === selectedId) ?? null) : null
 
   function selectItem(id: string) {
     setSelectedId(id)
@@ -271,7 +290,7 @@ export default function MainLayout({
 
   function handleDelete(id: string) {
     if (selectedId === id) setSelectedId(null)
-    onDeleteEntry(id)
+    void onDeleteEntry(id)
   }
 
   function handleUsePassword(pwd: string) {
@@ -292,20 +311,26 @@ export default function MainLayout({
         <>
           <div className="mb-4 flex items-center gap-3">
             {isMobile && <Vault size={18} strokeWidth={1.75} className="shrink-0 text-ink" />}
-            <h1 className="m-0 shrink-0 text-xl font-semibold tracking-[-0.04em] md:text-[22px]">Coffre</h1>
+            <h1 className="m-0 shrink-0 text-xl font-semibold tracking-[-0.04em] md:text-[22px]">
+              Coffre
+            </h1>
             <label className="flex min-w-0 flex-1 items-center gap-2">
               <Search size={16} className="shrink-0 text-inktext-faint" />
+              <span className="sr-only">Rechercher dans le coffre</span>
               <input
                 value={query}
-                onChange={e => setQuery(e.target.value)}
+                onChange={(e) => setQuery(e.target.value)}
                 placeholder="Rechercher…"
                 className="min-w-0 w-full border-0 bg-transparent py-1.5 text-sm text-inktext outline-none placeholder:text-inktext-faint"
               />
             </label>
             <button
               className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3 text-sm font-medium text-ink shadow-sm transition-colors duration-150 hover:bg-white"
-              onClick={() => { setPrefillPwd(''); setShowModal(true) }}
-              aria-label="Ajouter"
+              onClick={() => {
+                setPrefillPwd('')
+                setShowModal(true)
+              }}
+              aria-label="Ajouter une entrée"
             >
               <Plus size={16} />
               <span className="hidden sm:inline">Ajouter</span>
@@ -314,11 +339,13 @@ export default function MainLayout({
 
           <div className="mb-4 flex items-center gap-2">
             <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
-              {([
-                { id: 'all',       label: 'Tous'     },
-                { id: 'favorites', label: 'Favoris'  },
-                { id: 'weak',      label: 'Faibles'  },
-              ] as const).map(f => (
+              {(
+                [
+                  { id: 'all', label: 'Tous' },
+                  { id: 'favorites', label: 'Favoris' },
+                  { id: 'weak', label: 'Faibles' },
+                ] as const
+              ).map((f) => (
                 <button
                   key={f.id}
                   onClick={() => setFilter(f.id)}
@@ -333,9 +360,18 @@ export default function MainLayout({
               ))}
             </div>
             <div className="ml-auto flex shrink-0 items-center gap-3">
-              <SummaryStat icon={ShieldCheck} tone="green" label="Protégés" value={`${securitySummary.protectedCount}/${entries.length}`} />
-              <SummaryStat icon={ShieldAlert} tone="red" label="Compromis" value={`${securitySummary.compromisedCount}`} />
-              <SummaryStat icon={AlertTriangle} tone="amber" label="À revoir" value={`${securitySummary.reviewCount}`} />
+              <SummaryStat
+                icon={ShieldCheck}
+                tone="green"
+                label="Robustes (80 bits ou plus)"
+                value={`${strengthCounts.protectedCount}/${entries.length}`}
+              />
+              <SummaryStat
+                icon={AlertTriangle}
+                tone="amber"
+                label="À renforcer"
+                value={`${strengthCounts.reviewCount}`}
+              />
             </div>
           </div>
         </>
@@ -344,11 +380,11 @@ export default function MainLayout({
       <div className="flex min-h-0 flex-1 gap-6">
         {(!isMobile || mobileView === 'list') && (
           <div className="scrollbar-thin flex min-h-0 min-w-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-            {filtered.map(entry => (
+            {filtered.map((entry) => (
               <VaultRow
                 key={entry.id}
                 entry={entry}
-                password={decryptedPasswords[entry.id] ?? ''}
+                meta={searchIndex[entry.id]}
                 isSelected={entry.id === selectedId}
                 onSelect={selectItem}
                 onDelete={handleDelete}
@@ -379,30 +415,34 @@ export default function MainLayout({
         )}
 
         {(!isMobile || mobileView === 'detail') && (isMobile || entries.length > 0) && (
-        <div className={`scrollbar-thin flex min-h-0 flex-col overflow-y-auto rounded-xl bg-white shadow-sm ${isMobile ? 'min-h-0 w-full flex-1' : 'w-[360px] shrink-0'}`}>
-          {isMobile && selectedEntry && (
-            <button
-              onClick={() => setMobileView('list')}
-              className="flex cursor-pointer items-center gap-1 border-0 bg-transparent px-5 pt-4 text-sm font-medium text-inktext-muted"
-            >
-              <ChevronLeft size={16} /> Retour
-            </button>
-          )}
-          {selectedEntry ? (
-            <VaultDetailPanel
-              entry={selectedEntry}
-              password={decryptedPasswords[selectedEntry.id] ?? ''}
-              onDelete={handleDelete}
-              onFixEntry={onFixEntry}
-              onToggleFavorite={() => onToggleFavorite(selectedEntry.id)}
-              onClose={isMobile ? undefined : () => setSelectedId(null)}
-            />
-          ) : (
-            <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
-              <p className="text-sm text-inktext-faint">Sélectionnez un identifiant</p>
-            </div>
-          )}
-        </div>
+          <div
+            className={`scrollbar-thin flex min-h-0 flex-col overflow-y-auto rounded-xl bg-white shadow-sm ${isMobile ? 'min-h-0 w-full flex-1' : 'w-[360px] shrink-0'}`}
+          >
+            {isMobile && selectedEntry && (
+              <button
+                onClick={() => setMobileView('list')}
+                className="flex cursor-pointer items-center gap-1 border-0 bg-transparent px-5 pt-4 text-sm font-medium text-inktext-muted"
+              >
+                <ChevronLeft size={16} /> Retour
+              </button>
+            )}
+            {selectedEntry ? (
+              <VaultDetailPanel
+                entry={selectedEntry}
+                meta={searchIndex[selectedEntry.id]}
+                revealSecrets={onRevealSecrets}
+                hibpEnabled={settings.hibpEnabled}
+                onDelete={handleDelete}
+                onFixEntry={onFixEntry}
+                onToggleFavorite={() => void onToggleFavorite(selectedEntry.id)}
+                onClose={isMobile ? undefined : () => setSelectedId(null)}
+              />
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+                <p className="text-sm text-inktext-faint">Sélectionnez un identifiant</p>
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -411,20 +451,21 @@ export default function MainLayout({
   const navItems: Array<{ id: NavTab; icon: React.ElementType; label: string; badge?: number }> = [
     { id: 'vault', icon: Vault, label: 'Coffre' },
     { id: 'generator', icon: KeyRound, label: 'Générateur' },
-    { id: 'health', icon: HeartPulse, label: 'Santé', badge: alertBadge },
+    { id: 'health', icon: HeartPulse, label: 'Santé' },
     { id: 'settings', icon: Settings, label: 'Réglages' },
   ]
 
   return (
     <div className="flex min-h-screen bg-cream font-sans text-inktext">
-
       {!isMobile && (
         <aside
           className={`sticky top-0 flex h-screen shrink-0 flex-col overflow-hidden border-r border-border/70 bg-cream px-2.5 py-5 transition-[width] duration-200 ease-out ${
             sidebarOpen ? 'w-[212px]' : 'w-[64px]'
           }`}
         >
-          <div className={`mb-8 flex items-center ${sidebarOpen ? 'gap-2.5 px-2' : 'justify-center'}`}>
+          <div
+            className={`mb-8 flex items-center ${sidebarOpen ? 'gap-2.5 px-2' : 'justify-center'}`}
+          >
             <Vault size={20} strokeWidth={1.75} className="shrink-0 text-ink" />
             {sidebarOpen && (
               <span className="truncate text-[15px] font-semibold tracking-[-0.03em]">AegisVault</span>
@@ -432,13 +473,14 @@ export default function MainLayout({
           </div>
 
           <nav className="flex flex-col gap-1">
-            {navItems.map(({ id, icon: Icon, label, badge }) => {
+            {navItems.map(({ id, icon: Icon, label }) => {
               const active = activeTab === id
               return (
                 <button
                   key={id}
                   title={sidebarOpen ? undefined : label}
                   onClick={() => handleTabChange(id)}
+                  aria-current={active ? 'page' : undefined}
                   className={`relative flex w-full cursor-pointer items-center rounded-xl border-0 py-2 text-sm transition-colors duration-150 ${
                     sidebarOpen ? 'gap-3 px-2.5' : 'justify-center px-0'
                   } ${
@@ -449,12 +491,6 @@ export default function MainLayout({
                 >
                   <Icon size={18} strokeWidth={active ? 2 : 1.6} className="shrink-0" />
                   {sidebarOpen && <span className="flex-1 text-left">{label}</span>}
-                  {!!badge && sidebarOpen && (
-                    <span className="text-[11px] font-semibold text-red-600">{badge}</span>
-                  )}
-                  {!!badge && !sidebarOpen && (
-                    <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-red-600" />
-                  )}
                 </button>
               )
             })}
@@ -477,24 +513,32 @@ export default function MainLayout({
               onClick={toggleSidebar}
               title={sidebarOpen ? 'Réduire le menu' : 'Ouvrir le menu'}
               aria-label={sidebarOpen ? 'Réduire le menu' : 'Ouvrir le menu'}
+              aria-expanded={sidebarOpen}
               className={`flex w-full cursor-pointer items-center rounded-xl border-0 py-2 text-sm text-inktext-faint transition-colors duration-150 hover:bg-white/70 hover:text-inktext ${
                 sidebarOpen ? 'gap-3 px-2.5' : 'justify-center px-0'
               }`}
             >
-              {sidebarOpen ? <PanelLeftClose size={18} strokeWidth={1.6} className="shrink-0" /> : <PanelLeftOpen size={18} strokeWidth={1.6} />}
+              {sidebarOpen ? (
+                <PanelLeftClose size={18} strokeWidth={1.6} className="shrink-0" />
+              ) : (
+                <PanelLeftOpen size={18} strokeWidth={1.6} className="shrink-0" />
+              )}
               {sidebarOpen && <span>Réduire</span>}
             </button>
           </div>
         </aside>
       )}
 
-      <main className={`flex min-w-0 flex-1 flex-col ${isMobile ? 'px-4 pb-[calc(80px+env(safe-area-inset-bottom,0px))] pt-5' : 'px-8 py-7'}`}>
-
+      <main
+        className={`flex min-w-0 flex-1 flex-col ${isMobile ? 'px-4 pb-[calc(80px+env(safe-area-inset-bottom,0px))] pt-5' : 'px-8 py-7'}`}
+      >
         {activeTab !== 'vault' && (
           <div className="mb-5 flex min-w-0 items-center gap-3">
             {isMobile && <Vault size={18} strokeWidth={1.75} className="shrink-0 text-ink" />}
             <h1 className="m-0 min-w-0 truncate text-xl font-semibold tracking-[-0.04em] md:text-[22px]">
-              {{ vault: 'Coffre', generator: 'Générateur', health: 'Santé du coffre', settings: 'Réglages' }[activeTab]}
+              {{ vault: 'Coffre', generator: 'Générateur', health: 'Santé du coffre', settings: 'Réglages' }[
+                activeTab
+              ]}
             </h1>
           </div>
         )}
@@ -508,27 +552,42 @@ export default function MainLayout({
           )}
           {activeTab === 'health' && (
             <div className="mx-auto w-full max-w-[680px] animate-fade">
-              <HealthTab entries={entries} decryptedPasswords={decryptedPasswords} onFixEntry={onFixEntry} />
+              <HealthTab
+                entries={entries}
+                searchIndex={searchIndex}
+                hibpEnabled={settings.hibpEnabled}
+                revealAll={onRevealAll}
+                onFixEntry={onFixEntry}
+              />
             </div>
           )}
           {activeTab === 'settings' && (
             <div className="mx-auto w-full max-w-[680px] animate-fade">
-              <SettingsTab settings={settings} vault={vault} onSettingsChange={onSettingsChange} onReset={onReset} onImport={onImport} />
+              <SettingsTab
+                settings={settings}
+                vault={vault}
+                onSettingsChange={onSettingsChange}
+                onReset={onReset}
+                onImport={onImport}
+              />
             </div>
           )}
         </div>
       </main>
 
       {isMobile && (
-        <BottomTabBar
-          activeTab={activeTab}
-          onTabChange={handleTabChange}
-          alertBadge={alertBadge}
-          onLock={onLock}
-        />
+        <BottomTabBar activeTab={activeTab} onTabChange={handleTabChange} onLock={onLock} />
       )}
 
-      {showModal && <AddEntryModal prefillPassword={prefillPwd} onAdd={onAddEntry} onClose={() => setShowModal(false)} />}
+      {showModal && (
+        <AddEntryModal
+          prefillPassword={prefillPwd}
+          onAdd={(input) => {
+            void onAddEntry(input)
+          }}
+          onClose={() => setShowModal(false)}
+        />
+      )}
     </div>
   )
 }
