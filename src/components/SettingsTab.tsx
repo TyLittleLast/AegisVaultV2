@@ -95,7 +95,7 @@ export default function SettingsTab({
         Gérez le verrouillage, la vérification des fuites et les sauvegardes de votre coffre.
       </p>
 
-      <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-sm">
+      <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-card">
         <h2 className="text-sm font-medium text-inktext">Verrouillage automatique</h2>
         <p className="text-xs leading-relaxed text-inktext-faint">
           Le coffre se reverrouille après une période d&apos;inactivité réelle : le délai est
@@ -108,7 +108,7 @@ export default function SettingsTab({
               onClick={() => void update({ autoLockMinutes: m })}
               className={`cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-medium transition-colors ${
                 settings.autoLockMinutes === m
-                  ? 'bg-cream text-ink shadow-sm'
+                  ? 'bg-cream text-ink shadow-card'
                   : 'text-inktext-muted hover:bg-cream/80 hover:text-inktext'
               }`}
             >
@@ -136,7 +136,7 @@ export default function SettingsTab({
         </label>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-sm">
+      <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-card">
         <h2 className="flex items-center gap-2 text-sm font-medium text-inktext">
           <Globe size={15} className="text-inktext-muted" />
           Réseau
@@ -169,7 +169,7 @@ export default function SettingsTab({
         </p>
       </section>
 
-      <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-sm">
+      <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-card">
         <h2 className="text-sm font-medium text-inktext">Sauvegarde chiffrée</h2>
         <p className="text-xs leading-relaxed text-inktext-faint">
           Le fichier exporté ne contient que des données chiffrées. Le mot de passe maître reste
@@ -208,7 +208,7 @@ export default function SettingsTab({
         )}
       </section>
 
-      <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-sm">
+      <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-card">
         <h2 className="flex items-center gap-2 text-sm font-medium text-inktext">
           <KeyRound size={15} className="text-inktext-muted" />
           Changer le mot de passe maître
@@ -279,7 +279,7 @@ export default function SettingsTab({
         )}
       </section>
 
-      <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-sm">
+      <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-card">
         <h2 className="flex items-center gap-2 text-inktext">
           <AlertTriangle size={16} />
           <span className="text-sm font-medium">Zone dangereuse</span>
