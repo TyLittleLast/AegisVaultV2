@@ -26,7 +26,13 @@ export interface GeneratorOptions {
 
 /** Character pool implied by the options. Empty when every class is disabled. */
 export function buildPool(options: GeneratorOptions): string {
-  const { upper = true, lower = true, digits = true, symbols = true, excludeAmbiguous = false } = options
+  const {
+    upper = true,
+    lower = true,
+    digits = true,
+    symbols = true,
+    excludeAmbiguous = false,
+  } = options
   let pool = ''
   if (upper) pool += excludeAmbiguous ? CHARSETS.upper : CHARSETS.upperFull
   if (lower) pool += excludeAmbiguous ? CHARSETS.lower : CHARSETS.lowerFull
@@ -73,7 +79,8 @@ export const STRENGTH_THRESHOLDS = { medium: 50, strong: 80 } as const
 
 /** A breached password is always "Compromis", whatever its length. */
 export function grade(bits: number, isPwned = false): StrengthGrade & { compromised: boolean } {
-  if (isPwned) return { label: 'Compromis', bar: 'bg-red-600', text: 'text-red-600', compromised: true }
+  if (isPwned)
+    return { label: 'Compromis', bar: 'bg-red-600', text: 'text-red-600', compromised: true }
   if (bits >= STRENGTH_THRESHOLDS.strong) return { ...STRONG, compromised: false }
   if (bits >= STRENGTH_THRESHOLDS.medium) return { ...MEDIUM, compromised: false }
   return { ...WEAK, compromised: false }
@@ -99,7 +106,7 @@ function randomIntBelow(bound: number): number {
     throw new RangeError('bound must be a positive integer no greater than 2^32')
   }
   const limit = Math.floor(UINT32_RANGE / bound) * bound
-  let value = 0
+  let value: number
   // For bound === 1, limit === 2^32 and no draw is ever rejected.
   do {
     crypto.getRandomValues(scratch)

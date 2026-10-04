@@ -10,6 +10,7 @@ AegisVault est un coffre-fort de mots de passe 100 % navigateur (React 18 + Vite
 État actuel : les primitives cryptographiques sont correctes (Argon2id m=64 MiB/t=3/p=1, conforme RFC 9106 2e option ; clé AES non extractible ; canary type Bitwarden), mais le modèle de données ne chiffre que le mot de passe, la sécurité de session est incomplète, et le repo ne contient ni README, ni tests, ni linter.
 
 **Décisions actées :**
+
 - **Distribution : PWA pure, zéro backend.** Pas de Tauri/Rust. URL vivante déployée gratuitement.
 - **HIBP : réseau, mais opt-in explicite.** Aucune requête automatique ; activé par un réglage. `connect-src` limité à `api.pwnedpasswords.com`.
 - **Chiffrement par champ** (modèle Bitwarden), et non un blob JSON par entrée.
@@ -18,10 +19,17 @@ AegisVault est un coffre-fort de mots de passe 100 % navigateur (React 18 + Vite
 ## Modèle de données cible
 
 ```ts
-export interface EncryptedPayload { iv: string; ciphertext: string }
+export interface EncryptedPayload {
+  iv: string
+  ciphertext: string
+}
 
 export interface KdfParams {
-  algo: 'argon2id'; m: number; t: number; p: number; dkLen: 32
+  algo: 'argon2id'
+  m: number
+  t: number
+  p: number
+  dkLen: 32
 }
 
 export interface VaultEntry {
@@ -55,27 +63,29 @@ export interface AppSettings {
 
 ## Phases
 
-| Phase | Branche | Contenu |
-|---|---|---|
-| 0 | `chore/repo-hygiene` | `git init`, `.gitignore`, `LICENSE`, suppression code mort |
-| 1-2 | `feat/per-field-encryption` | Modèle v2, chiffrement par champ, `searchIndex` |
-| 3 | `feat/session-security` | Presse-papiers TTL, auto-lock inactivité, lock sur blur, limite d'échecs |
-| 4 | `feat/master-password-rotation` | Changement de mot de passe maître |
-| 5-6 | `feat/privacy-hardening` | Suppression favicon/CDN, UI honnête, CSP, `hibpService` robuste |
-| 7 | `refactor/dry-and-modules` | `utils/password.ts`, hooks, découpage, `ErrorBoundary` |
-| 8 | `test/vitest-suite` | Tests crypto, k-anonymat, URL, clipboard |
-| 9 | `chore/tooling-and-ci` | ESLint 9, Prettier, CI |
-| 10 | `build/tailwind-v4-vite-7` | Migration Tailwind v4 / Vite 7 |
-| 11 | `feat/pwa-offline` | Manifest, service worker, `storage.persist` |
-| 12 | `docs/threat-model-readme` | README, modèle de menace |
+| Phase | Branche                         | Contenu                                                                  |
+| ----- | ------------------------------- | ------------------------------------------------------------------------ |
+| 0     | `chore/repo-hygiene`            | `git init`, `.gitignore`, `LICENSE`, suppression code mort               |
+| 1-2   | `feat/per-field-encryption`     | Modèle v2, chiffrement par champ, `searchIndex`                          |
+| 3     | `feat/session-security`         | Presse-papiers TTL, auto-lock inactivité, lock sur blur, limite d'échecs |
+| 4     | `feat/master-password-rotation` | Changement de mot de passe maître                                        |
+| 5-6   | `feat/privacy-hardening`        | Suppression favicon/CDN, UI honnête, CSP, `hibpService` robuste          |
+| 7     | `refactor/dry-and-modules`      | `utils/password.ts`, hooks, découpage, `ErrorBoundary`                   |
+| 8     | `test/vitest-suite`             | Tests crypto, k-anonymat, URL, clipboard                                 |
+| 9     | `chore/tooling-and-ci`          | ESLint 9, Prettier, CI                                                   |
+| 10    | `build/tailwind-v4-vite-7`      | Migration Tailwind v4 / Vite 7                                           |
+| 11    | `feat/pwa-offline`              | Manifest, service worker, `storage.persist`                              |
+| 12    | `docs/threat-model-readme`      | README, modèle de menace                                                 |
 
 ### Phase 0 — Hygiène du repo
+
 - `git init`, `.gitignore`, `LICENSE` (MIT), `.gitattributes`, `.editorconfig`.
 - Supprimer `src/components/VaultCard.tsx` (code mort, remplacé par `VaultRow`).
 - Supprimer les exports de contournement du compilateur : `export { KeyRound, LockKeyhole }`, `export { ExternalLink, RefreshCw }`.
 - `package.json` : ajouter `lint`, `typecheck`, `test`, `check`.
 
 ### Phase 1-2 — Noyau crypto + chiffrement par champ
+
 - `src/types/vault.ts` : nouveau modèle ci-dessus.
 - `cryptoService` : lire les params KDF depuis le store au lieu de constantes ; conserver le canary.
 - Détection de format : si `stored.v !== 2`, message explicite + réinitialisation proposée. **Jamais de migration silencieuse.**
@@ -86,6 +96,7 @@ export interface AppSettings {
 - Export/import : document versionné + validation de schéma stricte.
 
 ### Phase 3 — Sécurité de session
+
 Répond à la préoccupation « quelqu'un d'autre utilise l'ordi ».
 
 - `src/utils/clipboard.ts` : `copySecret(value, ttlMs)` — écrit puis **écrase** le presse-papiers après le TTL.
@@ -95,10 +106,12 @@ Répond à la préoccupation « quelqu'un d'autre utilise l'ordi ».
 - `clearKey` documenté honnêtement comme best-effort (aucun zeroing réel en JS).
 
 ### Phase 4 — Changement de mot de passe maître
+
 - Vérifier l'ancien, dériver une nouvelle clé + nouveau salt, re-chiffrer **tous** les champs, préserver `v`/`kdf`.
 - Chemin de récupération documenté : exporter → changer → réimporter.
 
 ### Phase 5-6 — Vie privée et `hibpService`
+
 - Supprimer `ServiceLogo.tsx` (envoie chaque domaine stocké à Google). Le remplacer par un monogramme local.
 - Polices auto-hébergées ; supprimer l'`@import` CDN.
 - Supprimer l'UI factice (étape e-mail, « mot de passe oublié », compte créé, `'0'` codé en dur).
@@ -106,11 +119,13 @@ Répond à la préoccupation « quelqu'un d'autre utilise l'ordi ».
 - `hibpService` : header `Add-Padding: true`, purge des lignes de padding, correspondance exacte du suffixe, cache par préfixe, `AbortSignal` + retry sur 429, point d'entrée unique.
 
 ### Phase 7 — Refactor / DRY
+
 - `src/utils/password.ts` : `entropy()`, `grade()` (palette unique), `generate()` avec rejection sampling.
 - `src/hooks/useIsMobile.ts` — casse le cycle d'import `App` ↔ `MainLayout`.
 - Découper `App.tsx` et `MainLayout.tsx`. Un seul état `vault`. `ErrorBoundary` à la racine.
 
 ### Phase 8-12 — Tests, outillage, build, PWA, docs
+
 - Vitest : crypto, k-anonymat (le mot de passe complet n'apparaît jamais dans l'URL), URL, clipboard.
 - ESLint 9 flat config, Prettier 3, `noUncheckedIndexedAccess`, GitHub Actions.
 - Tailwind v4 (`@theme`, plugin Vite) — **attention au renommage de l'échelle des shadows**.
@@ -119,14 +134,14 @@ Répond à la préoccupation « quelqu'un d'autre utilise l'ordi ».
 
 ## Risques
 
-| Risque | Traitement |
-|---|---|
-| Rupture de format du coffre (v1 → v2) | Détecter `v`, refuser proprement, proposer un reset |
-| Renommage des shadows Tailwind v4 | Audit explicite ; sinon régression visuelle silencieuse |
+| Risque                                      | Traitement                                                                       |
+| ------------------------------------------- | -------------------------------------------------------------------------------- |
+| Rupture de format du coffre (v1 → v2)       | Détecter `v`, refuser proprement, proposer un reset                              |
+| Renommage des shadows Tailwind v4           | Audit explicite ; sinon régression visuelle silencieuse                          |
 | Le chiffrement par champ casse la recherche | Résolu par `searchIndex` ; ne pas régresser vers un état global de mots de passe |
-| CSP qui casse HIBP | Valider `connect-src` contre une requête réelle |
-| Service worker qui cache le coffre | Interdit : precache du shell seulement |
-| L'auto-lock casse la démo | Compte à rebours visible ; ne pas verrouiller pendant une activité réelle |
+| CSP qui casse HIBP                          | Valider `connect-src` contre une requête réelle                                  |
+| Service worker qui cache le coffre          | Interdit : precache du shell seulement                                           |
+| L'auto-lock casse la démo                   | Compte à rebours visible ; ne pas verrouiller pendant une activité réelle        |
 
 ## Validation
 

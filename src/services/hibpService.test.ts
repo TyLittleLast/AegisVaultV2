@@ -11,9 +11,7 @@ function rangeBody(suffixes: Record<string, number>): string {
 
 function mockFetch(body: string, ok = true) {
   return vi.fn(async () =>
-    ok
-      ? new Response(body, { status: 200 })
-      : new Response('nope', { status: 503 }),
+    ok ? new Response(body, { status: 200 }) : new Response('nope', { status: 503 }),
   )
 }
 
@@ -28,7 +26,7 @@ describe('hibpService — k-anonymat', () => {
 
   it("n'envoie jamais le mot de passe ni son empreinte complète", async () => {
     const password = 'Tr0ub4dor&3'
-    const fetchSpy = mockFetch(rangeBody({ 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA': 42 }))
+    const fetchSpy = mockFetch(rangeBody({ AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA: 42 }))
     vi.stubGlobal('fetch', fetchSpy)
 
     await checkPasswordBreach(password)
@@ -49,7 +47,7 @@ describe('hibpService — k-anonymat', () => {
   })
 
   it('envoie le header Add-Padding pour masquer la taille de la réponse', async () => {
-    const fetchSpy = mockFetch(rangeBody({ 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB': 1 }))
+    const fetchSpy = mockFetch(rangeBody({ BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB: 1 }))
     vi.stubGlobal('fetch', fetchSpy)
 
     await checkPasswordBreach('correct horse battery staple')
@@ -61,7 +59,10 @@ describe('hibpService — k-anonymat', () => {
 
   it('identifie un mot de passe compromis et son compteur', async () => {
     // SHA-1("password") = 5BAA61E4C9B93F3F0682250B6CF8331B7EE68FD8
-    vi.stubGlobal('fetch', mockFetch(rangeBody({ '1E4C9B93F3F0682250B6CF8331B7EE68FD8': 9_659_393 })))
+    vi.stubGlobal(
+      'fetch',
+      mockFetch(rangeBody({ '1E4C9B93F3F0682250B6CF8331B7EE68FD8': 9_659_393 })),
+    )
 
     await expect(checkPasswordBreach('password')).resolves.toEqual({
       isPwned: true,

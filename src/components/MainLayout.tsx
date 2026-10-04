@@ -275,9 +275,7 @@ export default function MainLayout({
     if (q) {
       list = list.filter((e) => {
         const meta = searchIndex[e.id]
-        return (
-          meta?.service.toLowerCase().includes(q) || meta?.username.toLowerCase().includes(q)
-        )
+        return meta?.service.toLowerCase().includes(q) || meta?.username.toLowerCase().includes(q)
       })
     }
     return list
@@ -430,6 +428,7 @@ export default function MainLayout({
             )}
             {selectedEntry ? (
               <VaultDetailPanel
+                key={selectedEntry.id}
                 entry={selectedEntry}
                 meta={searchIndex[selectedEntry.id]}
                 revealSecrets={onRevealSecrets}
@@ -470,7 +469,9 @@ export default function MainLayout({
           >
             <Vault size={20} strokeWidth={1.75} className="shrink-0 text-ink" />
             {sidebarOpen && (
-              <span className="truncate text-[15px] font-semibold tracking-[-0.03em]">AegisVault</span>
+              <span className="truncate text-[15px] font-semibold tracking-[-0.03em]">
+                AegisVault
+              </span>
             )}
           </div>
 
@@ -538,9 +539,14 @@ export default function MainLayout({
           <div className="mb-5 flex min-w-0 items-center gap-3">
             {isMobile && <Vault size={18} strokeWidth={1.75} className="shrink-0 text-ink" />}
             <h1 className="m-0 min-w-0 truncate text-xl font-semibold tracking-[-0.04em] md:text-[22px]">
-              {{ vault: 'Coffre', generator: 'Générateur', health: 'Santé du coffre', settings: 'Réglages' }[
-                activeTab
-              ]}
+              {
+                {
+                  vault: 'Coffre',
+                  generator: 'Générateur',
+                  health: 'Santé du coffre',
+                  settings: 'Réglages',
+                }[activeTab]
+              }
             </h1>
           </div>
         )}

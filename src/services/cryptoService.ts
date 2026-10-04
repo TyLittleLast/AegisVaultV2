@@ -79,32 +79,18 @@ export async function deriveKey(
   ])
 }
 
-export async function encryptData(
-  data: string,
-  key: CryptoKey,
-): Promise<EncryptedPayload> {
+export async function encryptData(data: string, key: CryptoKey): Promise<EncryptedPayload> {
   // Fresh IV per encryption. Never derived from the key or the plaintext.
   const iv = randomBytes(IV_BYTES)
   const encoded = new TextEncoder().encode(data)
-  const ciphertext = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    encoded,
-  )
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded)
   return { iv: toBase64(iv), ciphertext: toBase64(ciphertext) }
 }
 
-export async function decryptData(
-  payload: EncryptedPayload,
-  key: CryptoKey,
-): Promise<string> {
+export async function decryptData(payload: EncryptedPayload, key: CryptoKey): Promise<string> {
   const iv = fromBase64(payload.iv)
   const ciphertext = fromBase64(payload.ciphertext)
-  const plain = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv },
-    key,
-    ciphertext,
-  )
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext)
   return new TextDecoder().decode(plain)
 }
 
@@ -126,10 +112,7 @@ export async function createCanary(key: CryptoKey): Promise<EncryptedPayload> {
  * Returns false both for a wrong password and for a corrupted vault; the two
  * cases are intentionally indistinguishable to avoid leaking vault state.
  */
-export async function verifyCanary(
-  canary: EncryptedPayload,
-  key: CryptoKey,
-): Promise<boolean> {
+export async function verifyCanary(canary: EncryptedPayload, key: CryptoKey): Promise<boolean> {
   try {
     return (await decryptData(canary, key)) === CANARY_PLAINTEXT
   } catch {

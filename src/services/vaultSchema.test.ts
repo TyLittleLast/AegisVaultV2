@@ -59,15 +59,13 @@ describe('isVaultStore', () => {
     expect(isVaultStore(store)).toBe(true)
   })
 
-  it("refuse une entrée dont un champ sensible est en clair", () => {
+  it('refuse une entrée dont un champ sensible est en clair', () => {
     const store = validStore()
-    store.entries = [
-      { id: 'e1', service: 'github', username: PAYLOAD, password: PAYLOAD },
-    ] as never
+    store.entries = [{ id: 'e1', service: 'github', username: PAYLOAD, password: PAYLOAD }] as never
     expect(isVaultStore(store)).toBe(false)
   })
 
-  it("refuse un coffre avec une version inconnue", () => {
+  it('refuse un coffre avec une version inconnue', () => {
     expect(isVaultStore({ ...validStore(), v: 3 })).toBe(false)
     expect(isVaultStore({ ...validStore(), v: 1 })).toBe(false)
     expect(isVaultStore({ ...validStore(), v: undefined })).toBe(false)
@@ -94,7 +92,7 @@ const legacyStore = () => ({
 })
 
 describe('isLegacyVaultStore', () => {
-  it("reconnaît un coffre v1 avec champs en clair", () => {
+  it('reconnaît un coffre v1 avec champs en clair', () => {
     expect(isLegacyVaultStore(legacyStore())).toBe(true)
   })
 

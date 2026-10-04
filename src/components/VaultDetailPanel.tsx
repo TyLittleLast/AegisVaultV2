@@ -94,47 +94,40 @@ export default function VaultDetailPanel({
   const [revealed, setRevealed] = useState(false)
   const [revealing, setRevealing] = useState(false)
   const [revealError, setRevealError] = useState<string | null>(null)
-  const [hibp, setHibp] = useState<HibpResult | null>(null)
-  const [checking, setChecking] = useState(false)
+  const [hibp, setHibp] = useState<{ subject: string; result: HibpResult | null } | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const revealTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Reset per-entry state when the panel is pointed at a different entry.
-  useEffect(() => {
-    if (revealTimer.current) clearTimeout(revealTimer.current)
-    setPassword(null)
-    setRawUrl('')
-    setRevealed(false)
-    setRevealError(null)
-    setHibp(null)
-    setConfirmDelete(false)
-  }, [entry.id])
+  // Per-entry state is reset by remounting this panel with a `key` of the entry
+  // id, so there is no reset effect and no stale password can survive a switch.
 
   // Breach checks only happen when the user has opted in, and only for a
   // password that has actually been revealed.
+  //
+  // State is written only from the promise callbacks. Tagging the result with
+  // the password it describes lets both "is this badge current" and "is a check
+  // still running" be derived at render time, instead of resetting state
+  // synchronously inside the effect.
   useEffect(() => {
-    if (!hibpEnabled || !password) {
-      setHibp(null)
-      return
-    }
-    let cancelled = false
+    if (!hibpEnabled || !password) return
     const controller = new AbortController()
-    setChecking(true)
+    let cancelled = false
     checkPasswordBreach(password, controller.signal)
-      .then((r) => {
-        if (!cancelled) setHibp(r)
+      .then((result) => {
+        if (!cancelled) setHibp({ subject: password, result })
       })
       .catch(() => {
-        if (!cancelled) setHibp(null)
-      })
-      .finally(() => {
-        if (!cancelled) setChecking(false)
+        if (!cancelled) setHibp({ subject: password, result: null })
       })
     return () => {
       cancelled = true
       controller.abort()
     }
   }, [hibpEnabled, password])
+
+  const hibpCurrent = Boolean(hibpEnabled && password) && hibp?.subject === password
+  const hibpResult = hibpCurrent ? hibp.result : null
+  const hibpLoading = Boolean(hibpEnabled && password) && !hibpCurrent
 
   const reveal = useCallback(async () => {
     if (password) {
@@ -166,7 +159,7 @@ export default function VaultDetailPanel({
   }, [revealed])
 
   const bits = entry.entropy ?? 0
-  const info = grade(bits, hibp?.isPwned)
+  const info = grade(bits, hibpResult?.isPwned)
   const serviceLabel = meta?.service ?? 'Entrée illisible'
   const safeUrl = safeExternalUrl(rawUrl)
 
@@ -227,7 +220,9 @@ export default function VaultDetailPanel({
               onClick={() => void reveal()}
               disabled={revealing}
               className={iconBtn}
-              aria-label={password ? (revealed ? 'Masquer' : 'Afficher') : 'Déchiffrer le mot de passe'}
+              aria-label={
+                password ? (revealed ? 'Masquer' : 'Afficher') : 'Déchiffrer le mot de passe'
+              }
               title="Déchiffrer à la demande"
             >
               {revealing ? (
@@ -260,9 +255,11 @@ export default function VaultDetailPanel({
         <span className={`h-[7px] w-[7px] shrink-0 rounded-full ${info.bar}`} />
         <span className="text-[12.5px] text-inktext-muted">
           {info.label}
-          {checking && ' · vérification…'}
-          {!checking && hibp?.isPwned && ` · vu ${hibp.count.toLocaleString('fr-FR')} fois`}
-          {!checking && hibp && !hibp.isPwned && ' · non compromis'}
+          {hibpLoading && ' · vérification…'}
+          {!hibpLoading &&
+            hibpResult?.isPwned &&
+            ` · vu ${hibpResult.count.toLocaleString('fr-FR')} fois`}
+          {!hibpLoading && hibpResult && !hibpResult.isPwned && ' · non compromis'}
         </span>
       </div>
 
@@ -279,12 +276,12 @@ export default function VaultDetailPanel({
         </div>
       </div>
 
-      {(hibp?.isPwned || bits < STRENGTH_THRESHOLDS.medium) && (
+      {(hibpResult?.isPwned || bits < STRENGTH_THRESHOLDS.medium) && (
         <div className="mb-4 flex gap-2 rounded-xl bg-cream px-3 py-2.5 text-[12.5px] leading-snug text-red-700">
           <AlertTriangle size={14} className="mt-0.5 shrink-0" />
           <span>
-            {hibp?.isPwned
-              ? `Ce mot de passe est apparu ${hibp.count.toLocaleString('fr-FR')} fois dans des fuites connues.`
+            {hibpResult?.isPwned
+              ? `Ce mot de passe est apparu ${hibpResult.count.toLocaleString('fr-FR')} fois dans des fuites connues.`
               : 'Ce mot de passe est trop faible. Remplacez-le par un mot de passe généré localement.'}
           </span>
         </div>

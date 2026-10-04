@@ -19,12 +19,7 @@ interface IdleLockOptions {
  * else walks up to an already-unlocked machine. Rearming on user interaction
  * is what makes this usable as a safeguard on a shared computer.
  */
-export function useIdleLock({
-  enabled,
-  minutes,
-  lockOnBlur,
-  onLock,
-}: IdleLockOptions): void {
+export function useIdleLock({ enabled, minutes, lockOnBlur, onLock }: IdleLockOptions): void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onLockRef = useRef(onLock)
 

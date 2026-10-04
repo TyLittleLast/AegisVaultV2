@@ -98,8 +98,8 @@ export default function SettingsTab({
       <section className="flex flex-col gap-3 rounded-xl bg-white p-5 shadow-card">
         <h2 className="text-sm font-medium text-inktext">Verrouillage automatique</h2>
         <p className="text-xs leading-relaxed text-inktext-faint">
-          Le coffre se reverrouille après une période d&apos;inactivité réelle : le délai est
-          réarmé à chaque interaction, pas au déverrouillage.
+          Le coffre se reverrouille après une période d&apos;inactivité réelle : le délai est réarmé
+          à chaque interaction, pas au déverrouillage.
         </p>
         <div className="flex flex-wrap gap-1.5">
           {AUTO_LOCK_CHOICES.map((m) => (
@@ -154,8 +154,8 @@ export default function SettingsTab({
             </span>
             <span className="mt-0.5 block text-xs leading-relaxed text-inktext-faint">
               Désactivé par défaut. Tant qu&apos;il reste désactivé, AegisVault n&apos;effectue
-              aucune requête réseau. Quand vous l&apos;activez, seule une empreinte SHA-1 tronquée
-              à 5 caractères est envoyée à api.pwnedpasswords.com ; le mot de passe et son empreinte
+              aucune requête réseau. Quand vous l&apos;activez, seule une empreinte SHA-1 tronquée à
+              5 caractères est envoyée à api.pwnedpasswords.com ; le mot de passe et son empreinte
               complète ne quittent jamais l&apos;appareil.
             </span>
           </span>
@@ -214,9 +214,9 @@ export default function SettingsTab({
           Changer le mot de passe maître
         </h2>
         <p className="text-xs leading-relaxed text-inktext-faint">
-          Chaque champ du coffre est déchiffré puis re-chiffré avec une nouvelle clé et un
-          nouveau sel, entièrement sur cet appareil. À utiliser si vous pensez que l&apos;ordinateur
-          ou le mot de passe actuel ont pu être compromis.
+          Chaque champ du coffre est déchiffré puis re-chiffré avec une nouvelle clé et un nouveau
+          sel, entièrement sur cet appareil. À utiliser si vous pensez que l&apos;ordinateur ou le
+          mot de passe actuel ont pu être compromis.
         </p>
 
         {rotateDone ? (

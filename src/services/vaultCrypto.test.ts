@@ -29,7 +29,9 @@ describe('encryptEntry', () => {
     const entry = await encryptEntry(INPUT, key)
 
     // Distinct IVs mean the payloads cannot be byte-identical.
-    expect(new Set([entry.service.iv, entry.username.iv, entry.password.iv, entry.url!.iv]).size).toBe(4)
+    expect(
+      new Set([entry.service.iv, entry.username.iv, entry.password.iv, entry.url!.iv]).size,
+    ).toBe(4)
     for (const payload of [entry.service, entry.username, entry.password, entry.url!]) {
       expect(payload.ciphertext.length).toBeGreaterThan(0)
     }
@@ -111,7 +113,7 @@ describe('encryptEntry', () => {
     expect(JSON.stringify(meta)).not.toContain(INPUT.password)
   })
 
-  it("échoue à déchiffrer avec une autre clé", async () => {
+  it('échoue à déchiffrer avec une autre clé', async () => {
     const entry = await encryptEntry(INPUT, await keyFor('master'))
     const other = await keyFor('another')
 
@@ -199,7 +201,11 @@ describe('reencryptEntry', () => {
     const rotated = await Promise.all(entries.map((e) => reencryptEntry(e, oldKey, newKey)))
     const index = await buildSearchIndex(rotated, newKey)
 
-    expect(Object.values(index).map((m) => m.service).sort()).toEqual(['GitHub', 'GitLab'])
+    expect(
+      Object.values(index)
+        .map((m) => m.service)
+        .sort(),
+    ).toEqual(['GitHub', 'GitLab'])
     await expect(decryptEntryPassword(rotated[0], newKey)).resolves.toBe(INPUT.password)
   })
 })

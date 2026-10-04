@@ -1,10 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import {
-  CLIPBOARD_TTL_MS,
-  cancelScheduledClear,
-  clearClipboard,
-  copySecret,
-} from './clipboard'
+import { CLIPBOARD_TTL_MS, cancelScheduledClear, clearClipboard, copySecret } from './clipboard'
 
 /** Replaces the read-only `navigator` global with a controllable clipboard stub. */
 function stubClipboard(writeText: (text: string) => Promise<void>) {
@@ -91,7 +86,7 @@ describe('clipboard', () => {
     await expect(clearClipboard()).resolves.toBeUndefined()
   })
 
-  it("annule proprement un effacement programmé", async () => {
+  it('annule proprement un effacement programmé', async () => {
     vi.useFakeTimers()
     const clipboard = stubClipboard(async () => {})
 

@@ -46,18 +46,12 @@ export async function decryptEntryMeta(
   return { service, username }
 }
 
-export async function decryptEntryPassword(
-  entry: VaultEntry,
-  key: CryptoKey,
-): Promise<string> {
+export async function decryptEntryPassword(entry: VaultEntry, key: CryptoKey): Promise<string> {
   return decryptData(entry.password, key)
 }
 
 /** Decrypted URL, only called from the detail panel. */
-export async function decryptEntryUrl(
-  entry: VaultEntry,
-  key: CryptoKey,
-): Promise<string> {
+export async function decryptEntryUrl(entry: VaultEntry, key: CryptoKey): Promise<string> {
   return entry.url ? decryptData(entry.url, key) : ''
 }
 

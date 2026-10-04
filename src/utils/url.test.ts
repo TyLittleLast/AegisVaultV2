@@ -7,7 +7,7 @@ describe('safeExternalUrl', () => {
     expect(safeExternalUrl('http://example.com/a/b')).toBe('http://example.com/a/b')
   })
 
-  it("ajoute https:// quand le schéma est absent", () => {
+  it('ajoute https:// quand le schéma est absent', () => {
     expect(safeExternalUrl('github.com')).toBe('https://github.com/')
     expect(safeExternalUrl('example.com/login?next=1')).toBe('https://example.com/login?next=1')
   })
@@ -86,7 +86,7 @@ describe('displayUrl', () => {
     expect(displayUrl('HTTPS://Example.com///')).toBe('Example.com')
   })
 
-  it("renvoie une chaîne vide pour une entrée vide", () => {
+  it('renvoie une chaîne vide pour une entrée vide', () => {
     expect(displayUrl('')).toBe('')
     expect(displayUrl(undefined)).toBe('')
     expect(displayUrl(null)).toBe('')
