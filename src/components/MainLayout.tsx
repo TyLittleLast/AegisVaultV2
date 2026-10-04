@@ -430,6 +430,7 @@ export default function MainLayout({
             )}
             {selectedEntry ? (
               <VaultDetailPanel
+                key={selectedEntry.id}
                 entry={selectedEntry}
                 meta={searchIndex[selectedEntry.id]}
                 revealSecrets={onRevealSecrets}

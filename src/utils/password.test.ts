@@ -149,7 +149,7 @@ describe('generatePassword', () => {
     )
     expect(
       generatePassword({ length: 200, symbols: true, upper: false, lower: false, digits: false }),
-    ).toMatch(/^[!@#$%^&*()\-_=+\[\]{}|;:,.<>?]+$/)
+    ).toMatch(/^[!@#$%^&*()\-_=+[\]{}|;:,.<>?]+$/)
   })
 
   it('respecte excludeAmbiguous', () => {
@@ -217,9 +217,10 @@ describe('generatePassword', () => {
   it('generateStrongPassword utilise les valeurs par défaut', () => {
     const value = generateStrongPassword()
     expect(value).toHaveLength(20)
-    expect(value).toMatch(/[A-Z]/)
-    expect(value).toMatch(/[a-z]/)
-    expect(value).toMatch(/[0-9]/)
-    expect(value).toMatch(/[^A-Za-z0-9]/)
+    // Character-set membership, not per-class coverage: a single 20-char draw
+    // has roughly a 9% chance of missing the digit class entirely, which would
+    // make this test flaky. Class coverage is asserted on a long draw above.
+    const pool = new Set(buildPool(ALL))
+    for (const char of value) expect(pool.has(char)).toBe(true)
   })
 })

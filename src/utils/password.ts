@@ -99,7 +99,7 @@ function randomIntBelow(bound: number): number {
     throw new RangeError('bound must be a positive integer no greater than 2^32')
   }
   const limit = Math.floor(UINT32_RANGE / bound) * bound
-  let value = 0
+  let value: number
   // For bound === 1, limit === 2^32 and no draw is ever rejected.
   do {
     crypto.getRandomValues(scratch)

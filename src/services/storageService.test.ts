@@ -18,6 +18,7 @@ import {
 import { encryptEntry } from './vaultCrypto'
 import { deriveKey } from './cryptoService'
 import { diagnoseVault } from './vaultSchema'
+import type { UnlockAttempts } from './storageService'
 import type { KdfParams, VaultStore } from '../types/vault'
 
 const TEST_KDF: KdfParams = { algo: 'argon2id', m: 64, t: 1, p: 1, dkLen: 32 }
@@ -178,7 +179,7 @@ describe('storageService', () => {
     it('double le délai à chaque échec supplémentaire', async () => {
       const now = 1_000_000
       let previous = 0
-      let attempts = EMPTY_ATTEMPTS
+      let attempts: UnlockAttempts
 
       for (let i = 0; i < MAX_UNLOCK_FAILURES + 4; i++) {
         attempts = await recordUnlockFailure(now)

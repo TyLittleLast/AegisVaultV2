@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Copy, Check, RefreshCw } from 'lucide-react'
 import { copySecret } from '../utils/clipboard'
 import {
@@ -33,12 +33,14 @@ export default function GeneratorTab({ onUsePassword }: GeneratorTabProps) {
     symbols: false,
     excludeAmbiguous: true,
   })
-  const [password, setPassword] = useState('')
-  const [copied, setCopied] = useState(false)
-
   const effective = useMemo<GeneratorOptions>(() => ({ ...opts, length }), [opts, length])
   const poolSize = useMemo(() => buildPool(effective).length, [effective])
   const bits = useMemo(() => poolEntropy(effective), [effective])
+
+  // Seeded on mount so the panel never shows an empty readout, matching what the
+  // mount effect used to do without costing an extra render.
+  const [password, setPassword] = useState(() => (poolSize > 0 ? generatePassword(effective) : ''))
+  const [copied, setCopied] = useState(false)
 
   const regenerate = useCallback(() => {
     if (poolSize === 0) return
@@ -48,9 +50,17 @@ export default function GeneratorTab({ onUsePassword }: GeneratorTabProps) {
 
   // Keep a candidate on screen whenever the parameters change, so the readout
   // is never stale relative to the controls.
-  useEffect(() => {
-    if (poolSize > 0) setPassword(generatePassword(effective))
-  }, [effective, poolSize])
+  //
+  // Adjusting state during render rather than in an effect: React discards the
+  // render output and immediately re-runs with the new state, so the panel never
+  // paints a stale candidate and no cascading render is scheduled.
+  const signature = JSON.stringify(effective)
+  const [renderedSignature, setRenderedSignature] = useState(signature)
+  if (renderedSignature !== signature) {
+    setRenderedSignature(signature)
+    setPassword(poolSize > 0 ? generatePassword(effective) : '')
+    setCopied(false)
+  }
 
   const barColor =
     bits < STRENGTH_THRESHOLDS.medium

@@ -111,20 +111,17 @@ function LoginScreen({
   const [showPwd, setShowPwd] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [remaining, setRemaining] = useState(0)
+  const [now, setNow] = useState(() => Date.now())
 
-  // Live countdown while a lockout is active.
+  // A single tick source. `remaining` is derived rather than stored, so the
+  // countdown stays correct without writing state synchronously in an effect.
   useEffect(() => {
-    if (lockedUntil === null) {
-      setRemaining(0)
-      return
-    }
-    const tick = () =>
-      setRemaining(Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000)))
-    tick()
-    const id = setInterval(tick, 1000)
+    const id = setInterval(() => setNow(Date.now()), 1000)
     return () => clearInterval(id)
-  }, [lockedUntil])
+  }, [])
+
+  const remaining =
+    lockedUntil === null ? 0 : Math.max(0, Math.ceil((lockedUntil - now) / 1000))
 
   const lockedOut = remaining > 0
 
