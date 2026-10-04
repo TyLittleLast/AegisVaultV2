@@ -87,17 +87,24 @@ const scratch = new Uint32Array(1)
  *
  * `value % bound` alone would favour the low end of the pool by up to
  * 1 part in 2^32; discarding the incomplete final block removes that bias.
+ *
+ * The draw is rejected while it lands at or above `limit` — that is the
+ * incomplete tail, at most `bound - 1` values wide. Rejecting the other way
+ * round would keep redrawing until a value >= limit turns up, which for a
+ * typical 87-character pool means a probability of about 16/2^32 per attempt,
+ * i.e. an effective hang.
  */
 function randomIntBelow(bound: number): number {
-  if (!Number.isInteger(bound) || bound <= 0) {
-    throw new RangeError('bound must be a positive integer')
+  if (!Number.isInteger(bound) || bound <= 0 || bound > UINT32_RANGE) {
+    throw new RangeError('bound must be a positive integer no greater than 2^32')
   }
   const limit = Math.floor(UINT32_RANGE / bound) * bound
   let value = 0
-  while (value < limit) {
+  // For bound === 1, limit === 2^32 and no draw is ever rejected.
+  do {
     crypto.getRandomValues(scratch)
     value = scratch[0] as number
-  }
+  } while (value >= limit)
   return value % bound
 }
 
