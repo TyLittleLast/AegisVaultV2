@@ -1,17 +1,25 @@
-import { useState, useCallback, useEffect, useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
-  ShieldCheck, ShieldAlert, RefreshCw, AlertTriangle,
+  ShieldCheck,
+  ShieldAlert,
+  RefreshCw,
+  AlertTriangle,
   X,
-  ChevronDown, ChevronUp, Wrench, Loader,
+  ChevronDown,
+  ChevronUp,
+  Wrench,
   Repeat2,
 } from 'lucide-react'
 import { checkPasswordBreach } from '../services/hibpService'
-import type { VaultEntry } from '../types/vault'
+import { STRENGTH_THRESHOLDS, entropy as calcEntropy } from '../utils/password'
+import type { EntrySearchMeta, VaultEntry } from '../types/vault'
 
 interface HealthTabProps {
   entries: VaultEntry[]
-  decryptedPasswords: Record<string, string>
-  onFixEntry: (entryId: string, newPassword: string) => void
+  searchIndex: Record<string, EntrySearchMeta>
+  hibpEnabled: boolean
+  revealAll: () => Promise<Record<string, string>>
+  onFixEntry: (entryId: string) => void | Promise<void>
 }
 
 interface EntryDiag {
@@ -19,268 +27,304 @@ interface EntryDiag {
   entropy: number
   reusedOn: number
   score: number
-  checking: boolean
-  done: boolean
 }
 
 type Filter = 'all' | 'pwned' | 'weak' | 'reused'
 
-function calcEntropy(pwd: string): number {
-  let pool = 0
-  if (/[a-z]/.test(pwd)) pool += 26
-  if (/[A-Z]/.test(pwd)) pool += 26
-  if (/[0-9]/.test(pwd)) pool += 10
-  if (/[^a-zA-Z0-9]/.test(pwd)) pool += 32
-  return pool > 0 ? Math.floor(pwd.length * Math.log2(pool)) : 0
-}
-
-function entropyGrade(entropy: number): 'weak' | 'medium' | 'strong' {
-  if (entropy < 50) return 'weak'
-  if (entropy < 80) return 'medium'
-  return 'strong'
-}
-
-function healthScore(pwned: boolean, entropy: number, reused: boolean): number {
+function healthScore(pwned: boolean, bits: number, reused: boolean): number {
   if (pwned) return reused ? 10 : 15
-  const grade = entropyGrade(entropy)
-  let score = grade === 'strong' ? 100 : grade === 'medium' ? 70 : 40
+  let score = bits >= STRENGTH_THRESHOLDS.strong ? 100 : bits >= STRENGTH_THRESHOLDS.medium ? 70 : 40
   if (reused) score -= 20
   return Math.max(0, score)
 }
 
-function generateStrong(): string {
-  const pool = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*'
-  const arr = crypto.getRandomValues(new Uint32Array(20))
-  return Array.from(arr, n => pool[n % pool.length]).join('')
-}
-
-export default function HealthTab({ entries, decryptedPasswords, onFixEntry }: HealthTabProps) {
+export default function HealthTab({
+  entries,
+  searchIndex,
+  hibpEnabled,
+  revealAll,
+  onFixEntry,
+}: HealthTabProps) {
   const [diags, setDiags] = useState<Record<string, EntryDiag>>({})
-  const [globalLoading, setGlobalLoading] = useState(false)
+  const [running, setRunning] = useState(false)
+  const [auditedAt, setAuditedAt] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
 
-  const pwdCounts = useMemo(() => {
-    const acc: Record<string, string[]> = {}
-    for (const e of entries) {
-      const pwd = decryptedPasswords[e.id]
-      if (!pwd) continue
-      acc[pwd] = [...(acc[pwd] ?? []), e.id]
-    }
-    return acc
-  }, [entries, decryptedPasswords])
-
+  /**
+   * Explicit, user-triggered. Decrypted passwords stay inside this function:
+   * only derived diagnostics are kept in state, so a password never reaches
+   * React state even during an audit.
+   */
   const runAudit = useCallback(async () => {
     if (entries.length === 0) return
-    setGlobalLoading(true)
-    const init: Record<string, EntryDiag> = {}
-    for (const e of entries) {
-      const pwd = decryptedPasswords[e.id] ?? ''
-      init[e.id] = { pwnedCount: 0, entropy: calcEntropy(pwd), reusedOn: Math.max(0, (pwdCounts[pwd]?.length ?? 1) - 1), score: 100, checking: true, done: false }
+    setRunning(true)
+    try {
+      const passwords = await revealAll()
+
+      const usage = new Map<string, string[]>()
+      for (const entry of entries) {
+        const pwd = passwords[entry.id]
+        if (!pwd) continue
+        const bucket = usage.get(pwd)
+        if (bucket) bucket.push(entry.id)
+        else usage.set(pwd, [entry.id])
+      }
+
+      const next: Record<string, EntryDiag> = {}
+      for (const entry of entries) {
+        const pwd = passwords[entry.id] ?? ''
+        const bits = pwd ? calcEntropy(pwd) : 0
+        const reusedOn = Math.max(0, (usage.get(pwd)?.length ?? 0) - 1)
+
+        let pwnedCount = 0
+        if (hibpEnabled && pwd) {
+          try {
+            pwnedCount = (await checkPasswordBreach(pwd)).count
+          } catch {
+            // Offline or rate limited: fall back to local checks only.
+          }
+        }
+        next[entry.id] = {
+          pwnedCount,
+          entropy: bits,
+          reusedOn,
+          score: pwd ? healthScore(pwnedCount > 0, bits, reusedOn > 0) : 0,
+        }
+      }
+
+      setDiags(next)
+      setAuditedAt(new Date().toISOString())
+    } finally {
+      setRunning(false)
     }
-    setDiags(init)
-    for (const e of entries) {
-      const pwd = decryptedPasswords[e.id]
-      if (!pwd) continue
-      let pwnedCount = 0
-      try { pwnedCount = (await checkPasswordBreach(pwd)).count } catch { /* indisponible */ }
-      const entropy = calcEntropy(pwd)
-      const reusedOn = Math.max(0, (pwdCounts[pwd]?.length ?? 1) - 1)
-      const pwned = pwnedCount > 0
-      const score = healthScore(pwned, entropy, reusedOn > 0)
-      setDiags(prev => ({ ...prev, [e.id]: { pwnedCount, entropy, reusedOn, score, checking: false, done: true } }))
-    }
-    for (const e of entries) {
-      if (decryptedPasswords[e.id]) continue
-      setDiags(prev => {
-        const cur = prev[e.id]
-        if (!cur) return prev
-        return { ...prev, [e.id]: { ...cur, checking: false, done: true, score: 0 } }
-      })
-    }
-    setGlobalLoading(false)
-  }, [entries, decryptedPasswords, pwdCounts])
+  }, [entries, hibpEnabled, revealAll])
 
-  useEffect(() => {
-    void runAudit()
-  }, [runAudit])
+  const results = useMemo(() => Object.values(diags), [diags])
+  const globalScore =
+    results.length === 0
+      ? null
+      : Math.round(results.reduce((sum, d) => sum + d.score, 0) / results.length)
 
-  const doneEntries = Object.values(diags).filter(d => d.done)
-  const globalScore = doneEntries.length === 0 ? null
-    : Math.round(doneEntries.reduce((s, d) => s + d.score, 0) / doneEntries.length)
+  const stats = useMemo(
+    () => ({
+      pwned: entries.filter((e) => (diags[e.id]?.pwnedCount ?? 0) > 0).length,
+      weak: entries.filter((e) => {
+        const d = diags[e.id]
+        if (!d || (d.pwnedCount ?? 0) > 0) return false
+        return d.entropy < STRENGTH_THRESHOLDS.strong
+      }).length,
+      reused: entries.filter((e) => (diags[e.id]?.reusedOn ?? 0) > 0).length,
+    }),
+    [entries, diags],
+  )
 
-  const scoreColor = globalScore === null ? 'text-inktext-faint' : 'text-ink'
-  const barColor = globalScore === null ? 'bg-ink-light' : 'bg-ink'
-
-  const stats = {
-    pwned:  entries.filter(e => (diags[e.id]?.pwnedCount ?? 0) > 0).length,
-    weak:   entries.filter(e => {
-      const d = diags[e.id]
-      if (!d?.done || (d.pwnedCount ?? 0) > 0) return false
-      return entropyGrade(d.entropy) !== 'strong'
-    }).length,
-    reused: entries.filter(e => (diags[e.id]?.reusedOn ?? 0) > 0).length,
-  }
-
-  const filtered = entries.filter(e => {
+  const filtered = entries.filter((e) => {
     const d = diags[e.id]
     if (filter === 'pwned') return (d?.pwnedCount ?? 0) > 0
     if (filter === 'weak') {
-      if (!d?.done || (d.pwnedCount ?? 0) > 0) return false
-      return entropyGrade(d.entropy) !== 'strong'
+      if (!d || (d.pwnedCount ?? 0) > 0) return false
+      return d.entropy < STRENGTH_THRESHOLDS.strong
     }
     if (filter === 'reused') return (d?.reusedOn ?? 0) > 0
     return true
   })
 
-  const FILTERS: { id: Filter; label: string; count: number }[] = [
-    { id: 'all',    label: 'Tout',       count: entries.length },
-    { id: 'pwned',  label: 'Compromis',  count: stats.pwned },
-    { id: 'weak',   label: 'À revoir',   count: stats.weak },
+  const FILTERS: Array<{ id: Filter; label: string; count: number }> = [
+    { id: 'all', label: 'Tout', count: entries.length },
+    { id: 'pwned', label: 'Compromis', count: stats.pwned },
+    { id: 'weak', label: 'À revoir', count: stats.weak },
     { id: 'reused', label: 'Réutilisés', count: stats.reused },
   ]
 
+  const auditedLabel = auditedAt
+    ? new Date(auditedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    : null
+
   return (
     <div className="mx-auto flex max-w-2xl animate-rise flex-col gap-5">
+      <p className="text-sm text-inktext-muted">
+        Analyse locale de la robustesse et de la réutilisation
+        {hibpEnabled ? ', complétée par une vérification k-anonymat des fuites.' : '.'}{' '}
+        Les mots de passe ne quittent l&apos;appareil pendant l&apos;analyse.
+      </p>
 
       <div className="flex items-center gap-5 rounded-xl bg-white p-6 shadow-sm">
-        <div className={`text-5xl font-semibold tabular-nums ${scoreColor}`}>
-          {globalScore === null ? '—' : globalScore}{globalScore !== null && <span className="text-2xl">%</span>}
+        <div className="text-5xl font-semibold tabular-nums text-ink">
+          {globalScore === null ? '—' : globalScore}
+          {globalScore !== null && <span className="text-2xl">%</span>}
         </div>
         <div className="flex flex-1 flex-col gap-2">
           <div className="flex justify-between text-sm text-inktext-muted">
             <span>Score de santé du coffre</span>
-            <button onClick={runAudit} disabled={globalLoading || entries.length === 0}
-              className="flex items-center gap-1.5 text-inktext-muted transition-colors hover:text-ink disabled:opacity-30">
-              <RefreshCw size={12} className={globalLoading ? 'animate-spin' : ''} />
-              {globalLoading ? 'Analyse…' : 'Analyser'}
+            <button
+              onClick={() => void runAudit()}
+              disabled={running || entries.length === 0}
+              className="flex cursor-pointer items-center gap-1.5 text-inktext-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              <RefreshCw size={12} className={running ? 'animate-spin' : ''} />
+              {running ? 'Analyse…' : 'Analyser'}
             </button>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-cream">
-            <div className={`h-full rounded-full transition-all duration-700 ${barColor}`} style={{ width: `${globalScore ?? 0}%` }} />
+            <div
+              className="h-full rounded-full bg-ink transition-all duration-700"
+              style={{ width: `${globalScore ?? 0}%` }}
+            />
           </div>
-          <div className="flex gap-4 text-xs text-inktext-faint">
+          <div className="flex flex-wrap gap-4 text-xs text-inktext-faint">
             <span>{stats.pwned} compromis</span>
             <span>{stats.weak} à revoir</span>
             <span>{stats.reused} réutilisés</span>
+            {auditedLabel && <span>analysé à {auditedLabel}</span>}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {FILTERS.map(f => (
-          <button key={f.id} onClick={() => setFilter(f.id)}
-            className={`rounded-xl px-3.5 py-1.5 text-xs font-medium transition-colors ${
-              filter === f.id
-                ? 'bg-white text-ink shadow-sm'
-                : 'text-inktext-muted hover:bg-white/70 hover:text-inktext'
-            }`}>
-            {f.label} ({f.count})
-          </button>
-        ))}
-      </div>
+      {entries.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {FILTERS.map((f) => (
+            <button
+              key={f.id}
+              onClick={() => setFilter(f.id)}
+              className={`cursor-pointer rounded-xl px-3.5 py-1.5 text-xs font-medium transition-colors ${
+                filter === f.id
+                  ? 'bg-white text-ink shadow-sm'
+                  : 'text-inktext-muted hover:bg-white/70 hover:text-inktext'
+              }`}
+            >
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
+      )}
 
       <div className="flex flex-col gap-1">
         {filtered.length === 0 && (
-          <p className="mt-8 text-center text-sm text-black/30">
-            {Object.keys(diags).length === 0 ? 'Cliquez sur « Analyser » pour lancer l\'audit.' : 'Aucune entrée dans cette catégorie.'}
+          <p className="mt-8 text-center text-sm text-inktext-faint">
+            {auditedAt
+              ? 'Aucune entrée dans cette catégorie.'
+              : 'Lancez l’analyse pour auditer le coffre.'}
           </p>
         )}
 
-        {filtered.map(e => {
-          const d = diags[e.id]
-          const isPwned  = (d?.pwnedCount ?? 0) > 0
-          const grade    = d ? entropyGrade(d.entropy) : 'strong'
-          const isWeak   = d?.done && !isPwned && grade === 'weak'
-          const isMedium = d?.done && !isPwned && grade === 'medium'
-          const isReused = d?.done && (d?.reusedOn ?? 0) > 0
-          const isOk     = d?.done && !isPwned && !isReused && grade === 'strong'
-          const isOpen   = expanded === e.id
+        {filtered.map((entry) => {
+          const d = diags[entry.id]
+          const meta = searchIndex[entry.id]
+          const isPwned = (d?.pwnedCount ?? 0) > 0
+          const grade = d ? d.entropy >= STRENGTH_THRESHOLDS.strong ? 'strong' : d.entropy >= STRENGTH_THRESHOLDS.medium ? 'medium' : 'weak' : 'strong'
+          const isWeak = !!d && !isPwned && grade === 'weak'
+          const isMedium = !!d && !isPwned && grade === 'medium'
+          const isReused = !!d && (d.reusedOn ?? 0) > 0
+          const isOk = !!d && !isPwned && !isReused && grade === 'strong'
+          const isOpen = expanded === entry.id
 
           return (
-            <div key={e.id} className={`overflow-hidden rounded-xl transition-colors ${isOpen ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}>
-
-              <button className="flex min-h-[60px] w-full items-center justify-between px-3.5 py-2.5 text-left"
-                onClick={() => setExpanded(isOpen ? null : e.id)}>
+            <div
+              key={entry.id}
+              className={`overflow-hidden rounded-xl transition-colors ${isOpen ? 'bg-white shadow-sm' : 'hover:bg-white/70'}`}
+            >
+              <button
+                className="flex min-h-[60px] w-full cursor-pointer items-center justify-between px-3.5 py-2.5 text-left"
+                onClick={() => setExpanded(isOpen ? null : entry.id)}
+                aria-expanded={isOpen}
+              >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-inktext">{e.service}</p>
-                  <p className="truncate text-xs text-black/40">{e.username}</p>
+                  <p className="truncate text-sm font-semibold text-inktext">
+                    {meta?.service ?? 'Entrée illisible'}
+                  </p>
+                  <p className="truncate text-xs text-inktext-faint">{meta?.username ?? '—'}</p>
                 </div>
                 <div className="ml-3 flex shrink-0 items-center gap-2">
-                  {d?.checking && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-black/40" title="Vérification en cours" aria-label="Vérification en cours">
-                      <Loader size={13} className="animate-spin" />
-                    </span>
-                  )}
-                  {!d?.checking && isPwned && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600" title="Compromis" aria-label="Compromis">
+                  {isPwned && (
+                    <span className="text-red-600" title="Compromis" aria-label="Compromis">
                       <X size={15} strokeWidth={2.5} />
                     </span>
                   )}
-                  {!d?.checking && isWeak && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600" title="Mot de passe faible" aria-label="Mot de passe faible">
+                  {isWeak && (
+                    <span className="text-red-600" title="Mot de passe faible" aria-label="Mot de passe faible">
                       <AlertTriangle size={14} />
                     </span>
                   )}
-                  {!d?.checking && isMedium && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600" title="Mot de passe moyen" aria-label="Mot de passe moyen">
+                  {isMedium && (
+                    <span className="text-amber-600" title="Mot de passe moyen" aria-label="Mot de passe moyen">
                       <AlertTriangle size={14} />
                     </span>
                   )}
-                  {!d?.checking && isReused && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-amber-600" title="Mot de passe réutilisé" aria-label="Mot de passe réutilisé">
+                  {isReused && (
+                    <span className="text-amber-600" title="Mot de passe réutilisé" aria-label="Mot de passe réutilisé">
                       <Repeat2 size={14} />
                     </span>
                   )}
-                  {!d?.checking && isOk && (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600" title="Sécurisé" aria-label="Sécurisé">
+                  {isOk && (
+                    <span className="text-emerald-600" title="Sécurisé" aria-label="Sécurisé">
                       <ShieldCheck size={15} strokeWidth={2.5} />
                     </span>
                   )}
-                  {d?.done && <span className="w-8 text-right text-xs font-bold tabular-nums text-black/30">{d.score}%</span>}
-                  {isOpen ? <ChevronUp size={14} className="text-black/30" /> : <ChevronDown size={14} className="text-black/30" />}
+                  {d && <span className="w-8 text-right text-xs font-bold tabular-nums text-inktext-faint">{d.score}%</span>}
+                  {isOpen ? <ChevronUp size={14} className="text-inktext-faint" /> : <ChevronDown size={14} className="text-inktext-faint" />}
                 </div>
               </button>
 
-              {isOpen && d?.done && (
+              {isOpen && d && (
                 <div className="flex flex-col gap-3 px-3.5 pb-4 pt-1">
                   {isPwned && (
                     <div className="rounded-xl bg-cream p-3 text-xs leading-relaxed text-red-700">
-                      <p className="mb-1 flex items-center gap-1.5 font-semibold"><ShieldAlert size={12} /> Mot de passe compromis</p>
-                      Ce mot de passe est apparu <strong>{d.pwnedCount.toLocaleString()} fois</strong> dans des fuites de données publiques (analyse k-anonymat HIBP). Même s’il est long, il n’est plus sûr : remplacez-le.
+                      <p className="mb-1 flex items-center gap-1.5 font-semibold">
+                        <ShieldAlert size={12} /> Mot de passe compromis
+                      </p>
+                      Ce mot de passe est apparu{' '}
+                      <strong>{d.pwnedCount.toLocaleString('fr-FR')} fois</strong> dans des fuites
+                      de données publiques. Même long, il n&apos;est plus sûr : remplacez-le.
                     </div>
                   )}
-                  {!isPwned && isWeak && (
+                  {isWeak && (
                     <div className="rounded-xl bg-cream p-3 text-xs leading-relaxed text-red-700">
-                      <p className="mb-1 flex items-center gap-1.5 font-semibold"><AlertTriangle size={12} /> Mot de passe faible</p>
-                      Entropie estimée : <strong>{d.entropy} bits</strong> (seuil fort : 80 bits). Ce mot de passe peut être deviné rapidement.
+                      <p className="mb-1 flex items-center gap-1.5 font-semibold">
+                        <AlertTriangle size={12} /> Mot de passe faible
+                      </p>
+                      Entropie estimée : <strong>{d.entropy} bits</strong> (seuil robuste : 80 bits).
                     </div>
                   )}
-                  {!isPwned && isMedium && (
+                  {isMedium && (
                     <div className="rounded-xl bg-cream p-3 text-xs leading-relaxed text-amber-700">
-                      <p className="mb-1 flex items-center gap-1.5 font-semibold"><AlertTriangle size={12} /> Mot de passe moyen</p>
-                      Entropie estimée : <strong>{d.entropy} bits</strong>. Correct, mais pas encore au niveau « fort » (80 bits et plus).
+                      <p className="mb-1 flex items-center gap-1.5 font-semibold">
+                        <AlertTriangle size={12} /> Mot de passe moyen
+                      </p>
+                      Entropie estimée : <strong>{d.entropy} bits</strong>. Correct, mais sous le
+                      niveau « fort » (80 bits).
                     </div>
                   )}
                   {isReused && (
                     <div className="rounded-xl bg-cream p-3 text-xs leading-relaxed text-amber-700">
-                      <p className="mb-1 flex items-center gap-1.5 font-semibold"><AlertTriangle size={12} /> Mot de passe réutilisé</p>
-                      Ce mot de passe est utilisé sur <strong>{d.reusedOn} autre{d.reusedOn > 1 ? 's' : ''} compte{d.reusedOn > 1 ? 's' : ''}</strong>. Si l'un de ces services est compromis, tous vos comptes sont en danger.
+                      <p className="mb-1 flex items-center gap-1.5 font-semibold">
+                        <AlertTriangle size={12} /> Mot de passe réutilisé
+                      </p>
+                      Utilisé sur <strong>{d.reusedOn} autre{d.reusedOn > 1 ? 's' : ''} compte
+                      {d.reusedOn > 1 ? 's' : ''}</strong>. Si l&apos;un de ces services est
+                      compromis, tous vos comptes le sont.
                     </div>
                   )}
                   {isOk && (
                     <div className="rounded-xl bg-cream p-3 text-xs text-emerald-700">
-                      <p className="flex items-center gap-1.5"><ShieldCheck size={12} /> Aucun problème détecté — ce mot de passe est fort, unique et non compromis.</p>
+                      <p className="flex items-center gap-1.5">
+                        <ShieldCheck size={12} /> Aucun problème détecté — robuste, unique et non
+                        compromis.
+                      </p>
                     </div>
                   )}
                   {(isPwned || isWeak || isMedium || isReused) && (
                     <div className="flex items-center justify-between gap-3 rounded-xl bg-cream p-3">
                       <div>
-                        <p className="mb-0.5 text-xs font-medium text-inktext">Plan d'action</p>
-                        <p className="text-xs text-inktext-faint">Remplacez ce mot de passe par un mot de passe fort généré automatiquement.</p>
+                        <p className="mb-0.5 text-xs font-medium text-inktext">Plan d’action</p>
+                        <p className="text-xs text-inktext-faint">
+                          Généré localement, jamais transmis.
+                        </p>
                       </div>
-                      <button onClick={() => onFixEntry(e.id, generateStrong())}
-                        className="flex shrink-0 items-center gap-1.5 rounded-xl bg-ink px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-ink-deep">
+                      <button
+                        onClick={() => void onFixEntry(entry.id)}
+                        className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-ink px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-ink-deep"
+                      >
                         <Wrench size={11} /> Corriger
                       </button>
                     </div>
