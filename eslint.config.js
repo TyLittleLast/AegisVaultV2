@@ -48,5 +48,15 @@ export default tseslint.config(
     },
   },
 
+  {
+    // Build-time Node scripts: generator and tooling, never shipped.
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: { ...globals.node },
+    },
+  },
+
   prettier,
 )

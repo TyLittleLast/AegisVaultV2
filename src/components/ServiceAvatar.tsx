@@ -1,3 +1,5 @@
+import { brandTint, resolveBrand } from '../data/brandIcons'
+
 const TONES = [
   'bg-[#F3E3DA] text-[#8A4B32]',
   'bg-[#E3EAF2] text-[#33506B]',
@@ -27,13 +29,31 @@ function initials(label: string): string {
 }
 
 /**
- * Monogram avatar rendered entirely from the entry's own name.
+ * Service avatar rendered entirely from the entry's own name.
  *
  * Deliberately does not fetch a favicon: doing so would disclose every stored
  * service to a third party on every render, which would contradict the
- * zero-knowledge claim. Purely decorative.
+ * zero-knowledge claim. The brand marks are the same SVG paths shipped in the
+ * bundle, matched against the label offline. Purely decorative.
  */
 export default function ServiceAvatar({ label, size = 40 }: { label: string; size?: number }) {
+  const brand = resolveBrand(label)
+
+  if (brand) {
+    const glyph = Math.round(size * 0.58)
+    return (
+      <div
+        aria-hidden="true"
+        className="flex shrink-0 items-center justify-center rounded-xl"
+        style={{ width: size, height: size, backgroundColor: brandTint(brand.color) }}
+      >
+        <svg width={glyph} height={glyph} viewBox={brand.viewBox} role="presentation">
+          <path fill={brand.color} d={brand.path} />
+        </svg>
+      </div>
+    )
+  }
+
   const tone = TONES[hash(label) % TONES.length]!
   return (
     <div
