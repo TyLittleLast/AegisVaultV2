@@ -4,7 +4,7 @@ import { Search, X } from 'lucide-react'
 interface SearchFieldProps {
   value: string
   onChange: (value: string) => void
-  /** Escape closes the field but keeps the query as an active filter. */
+  /** Escape, and the leading icon, collapse the field without clearing it. */
   onClose: () => void
   placeholder?: string
   /**
@@ -19,20 +19,31 @@ interface SearchFieldProps {
  * The search input itself, without the expand/collapse chrome.
  *
  * Kept separate from the header so the desktop (expands inline) and mobile
- * (takes a full-width row) layouts share one implementation, including the
- * clear button and the Escape handling.
+ * (takes a full-width row) layouts share one implementation.
+ *
+ * The leading icon is the collapse control, which is what lets the header hide
+ * its own magnifier while the field is open — one search icon on screen at a
+ * time, never two. The root is a div rather than a label because a button
+ * nested inside a label also triggers the label's activation, which would
+ * re-focus the input as it closes.
  */
 const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(function SearchField(
   { value, onChange, onClose, placeholder = 'Rechercher…', inactive = false },
   ref,
 ) {
   return (
-    <label
+    <div
       aria-hidden={inactive || undefined}
       className="flex h-9 w-full min-w-0 items-center gap-2 rounded-xl bg-white px-3 shadow-card"
     >
-      <Search size={15} className="shrink-0 text-inktext-faint" />
-      <span className="sr-only">Rechercher dans le coffre</span>
+      <button
+        onClick={onClose}
+        aria-label="Fermer la recherche"
+        tabIndex={inactive ? -1 : 0}
+        className="shrink-0 cursor-pointer text-inktext-faint transition-colors hover:text-inktext"
+      >
+        <Search size={15} />
+      </button>
       <input
         ref={ref}
         value={value}
@@ -41,6 +52,7 @@ const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(function Sear
           if (e.key === 'Escape') onClose()
         }}
         placeholder={placeholder}
+        aria-label="Rechercher dans le coffre"
         autoComplete="off"
         spellCheck={false}
         tabIndex={inactive ? -1 : 0}
@@ -56,7 +68,7 @@ const SearchField = forwardRef<HTMLInputElement, SearchFieldProps>(function Sear
           <X size={14} />
         </button>
       )}
-    </label>
+    </div>
   )
 })
 

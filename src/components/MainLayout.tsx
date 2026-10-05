@@ -373,6 +373,22 @@ export default function MainLayout({
               </div>
             )}
 
+            {/* Hidden while open: the field carries the search icon itself, and
+                two magnifiers side by side read as a mistake. */}
+            {!searchOpen && (
+              <button
+                onClick={openSearch}
+                aria-label="Rechercher"
+                aria-expanded={false}
+                className="relative inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl text-inktext-muted transition-colors duration-150 hover:bg-white hover:text-ink"
+              >
+                <Search size={16} />
+                {query && (
+                  <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-ink" />
+                )}
+              </button>
+            )}
+
             <button
               className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3 text-sm font-medium text-ink shadow-card transition-colors duration-150 hover:bg-white"
               onClick={() => {
@@ -383,20 +399,6 @@ export default function MainLayout({
             >
               <Plus size={16} />
               <span className="hidden sm:inline">Ajouter</span>
-            </button>
-
-            {/* Collapsed affordance. A dot marks an active filter so closing the
-                field never silently hides the fact that the list is filtered. */}
-            <button
-              onClick={() => (searchOpen ? closeSearch() : openSearch())}
-              aria-label={searchOpen ? 'Fermer la recherche' : 'Rechercher'}
-              aria-expanded={searchOpen}
-              className="relative inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl text-inktext-muted transition-colors duration-150 hover:bg-white hover:text-ink"
-            >
-              <Search size={16} />
-              {!searchOpen && query && (
-                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-ink" />
-              )}
             </button>
           </div>
 
