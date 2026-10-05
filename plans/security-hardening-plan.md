@@ -7,10 +7,10 @@
 
 AegisVault est un coffre-fort de mots de passe 100 % navigateur (React 18 + Vite + Tailwind + Web Crypto + hash-wasm), sans backend. L'utilisateur veut (a) l'utiliser personnellement et (b) le présenter à des recruteurs via un repo GitHub.
 
-État atteint : toutes les phases 0 à 12 sont mergées dans `main`. Le modèle de données chiffre
-champ par champ, la sécurité de session est complète, et le repo contient README, tests, linter et
-CI. Le seul point de cette feuille de route qui reste ouvert est `noUncheckedIndexedAccess`
-(phase 8-12), non activé dans `tsconfig.json`.
+État atteint : toutes les phases 0 à 12 sont mergées dans `main`, y compris
+`noUncheckedIndexedAccess` (phase 8-12). Le modèle de données chiffre champ par champ, la sécurité
+de session est complète, et le repo contient README, tests, linter et CI. Cette feuille de route est
+close ; voir `CONTEXT.md` pour l'état courant.
 
 **Décisions actées :**
 
@@ -137,8 +137,7 @@ Répond à la préoccupation « quelqu'un d'autre utilise l'ordi ».
 
 - Vitest : crypto, k-anonymat (le mot de passe complet n'apparaît jamais dans l'URL), URL, clipboard.
 - ESLint 9 flat config, Prettier 3, GitHub Actions.
-- `noUncheckedIndexedAccess` — **reste à faire.** Non activé dans `tsconfig.json` ; l'activation
-  fera probablement remonter des assertions `!` à justifier une par une.
+- `noUncheckedIndexedAccess` — **fait.** Coût réel : une seule erreur, dans un test.
 - Tailwind v4 (`@theme`, plugin Vite) — **attention au renommage de l'échelle des shadows**.
 - PWA : manifest, service worker (**shell seul, jamais le coffre**), `navigator.storage.persist()`.
 - README avec modèle de menace explicite.

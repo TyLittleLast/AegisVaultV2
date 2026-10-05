@@ -5,18 +5,18 @@
 
 ## Stack Technique
 
-| Couche               | Technologie                  | Note                                      |
-| -------------------- | ---------------------------- | ----------------------------------------- |
-| Framework UI         | React 18.3                   | 19 différé, aucun besoin fonctionnel      |
-| Bundler              | Vite 7                       | cible `es2022`                            |
-| Langage              | TypeScript `strict`          | `noUncheckedIndexedAccess` **non activé** |
-| Styles               | Tailwind CSS **v4**          | configuré en CSS via `@theme`             |
-| Polices              | `@fontsource-variable`       | Inter + JetBrains Mono, auto-hébergées    |
-| Crypto (KDF)         | hash-wasm (Argon2id)         |                                           |
-| Crypto (chiffrement) | Web Crypto API (AES-256-GCM) |                                           |
-| Anti-fuite           | HIBP Pwned Passwords API     | opt-in, k-anonymat                        |
-| PWA                  | `vite-plugin-pwa`            | shell seul, jamais le coffre              |
-| Tests                | Vitest 5                     | 161 tests                                 |
+| Couche               | Technologie                  | Note                                   |
+| -------------------- | ---------------------------- | -------------------------------------- |
+| Framework UI         | React 18.3                   | 19 différé, aucun besoin fonctionnel   |
+| Bundler              | Vite 7                       | cible `es2022`                         |
+| Langage              | TypeScript `strict`          | + `noUncheckedIndexedAccess`           |
+| Styles               | Tailwind CSS **v4**          | configuré en CSS via `@theme`          |
+| Polices              | `@fontsource-variable`       | Inter + JetBrains Mono, auto-hébergées |
+| Crypto (KDF)         | hash-wasm (Argon2id)         |                                        |
+| Crypto (chiffrement) | Web Crypto API (AES-256-GCM) |                                        |
+| Anti-fuite           | HIBP Pwned Passwords API     | opt-in, k-anonymat                     |
+| PWA                  | `vite-plugin-pwa`            | shell seul, jamais le coffre           |
+| Tests                | Vitest 5                     | 161 tests                              |
 
 Il n'y a **pas** de `tailwind.config.js` ni de `postcss.config.js` : Tailwind v4 passe par le
 plugin `@tailwindcss/vite` et se configure dans `src/index.css`. `postcss` et `autoprefixer` ont
