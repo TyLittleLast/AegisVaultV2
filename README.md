@@ -5,6 +5,7 @@ Le coffre vit dans votre navigateur, le chiffrement s'exécute dans votre naviga
 requête réseau que l'application est autorisée à effectuer est un appel anonymisé à l'API
 _Have I Been Pwned_ — que vous pouvez désactiver.
 
+[![CI](https://github.com/TyLittleLast/AegisVaultV2/actions/workflows/ci.yml/badge.svg)](https://github.com/TyLittleLast/AegisVaultV2/actions/workflows/ci.yml)
 [![Licence](https://img.shields.io/badge/licence-MIT-emerald.svg)](./LICENSE)
 
 ---
@@ -270,6 +271,13 @@ sont jamais touchées par le cache.
 `.github/workflows/ci.yml` exécute formatage, typecheck, lint, tests avec couverture et build sur
 Node 20, 22 et 24 — toutes les versions déclarées dans `engines`. Un second job audite le bundle de
 production à la recherche de chaînes ressemblant à des identifiants avant de le publier en artefact.
+
+Les seuils de couverture de `vitest.config.ts` sont **appliqués par la CI**, pas seulement en local :
+c'est ce qui leur donne un sens de plancher.
+
+Dependabot regroupe uniquement les **patchs**. Les majors restent une PR par dépendance, pour deux
+raisons : une PR qui casse n'identifie pas sa cause, et un reviewer qui apprend à ignorer des PR
+rouges cesse d'en lire.
 
 ## Licence
 
