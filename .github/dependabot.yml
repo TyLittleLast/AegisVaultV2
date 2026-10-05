@@ -1,17 +1,27 @@
 version: 2
+
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # Patch-only batching. The previous catch-all group (`patterns: ['*']`)
+    # bundled every version update into a single "security" pull request, which
+    # produced nine upgrades — seven of them major — and a lockfile that could
+    # not even install. Grouping majors hides the blast radius: when a pull
+    # request fails you cannot tell which dependency caused it, and a reviewer
+    # learns to dismiss them unread.
+    #
+    # Patches are safe to batch because they cannot change behaviour. Majors
+    # stay one-per-pull-request so each is reviewable on its own, and security
+    # advisories keep arriving as their own alert rather than being relabelled
+    # into a bundle.
     groups:
-      # Dependencies are audited for known CVEs, so security patches should not
-      # sit behind the rest of the weekly noise.
-      security:
+      patches:
         applies-to: version-updates
-        patterns:
-          - '*'
+        update-types:
+          - patch
 
   - package-ecosystem: github-actions
     directory: /
