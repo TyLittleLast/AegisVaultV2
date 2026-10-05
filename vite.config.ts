@@ -15,23 +15,38 @@ import { VitePWA } from 'vite-plugin-pwa'
  * a claim in the README and becomes a constraint the browser enforces.
  *
  * `style-src` still needs 'unsafe-inline' because strength meters set inline
- * widths. That is a far smaller exposure than inline script, and `script-src`
- * stays locked to 'self'.
+ * widths. That is a far smaller exposure than inline script.
  *
- * `font-src` needs `data:` because Vite inlines any asset below
- * `assetsInlineLimit` (4 KB by default), and one @fontsource subset falls under
- * it. That subset became a `url(data:font/woff2;base64,…)` reference which
- * `font-src 'self'` blocked, so a handful of glyphs silently fell back to a
- * system face. `data:` is not a third party: the bytes live inside our own
- * stylesheet, so nothing is fetched from anywhere. `font-src` remains a promise
- * that no font host is ever contacted.
+ * `script-src` needs 'wasm-unsafe-eval' because Argon2id comes from
+ * `hash-wasm`, which is a WebAssembly build: without this keyword the browser
+ * refuses to compile the module and the master password can neither be hashed
+ * nor checked, so the vault can be neither created nor opened. The keyword is
+ * supported by Chrome, Firefox (102+) and Safari, and unlike 'unsafe-eval' it
+ * does not enable general evaluation of JavaScript. 'unsafe-inline' stays out,
+ * so injecting a script tag remains impossible.
+ *
+ * `font-src` and `img-src` stay at `'self'`. Vite inlines any asset below
+ * `assetsInlineLimit` (4 KB by default) and one @fontsource subset fell under
+ * it, so that subset became a `url(data:font/woff2;base64,…)` reference which
+ * `font-src 'self'` blocked; a handful of glyphs silently fell back to a system
+ * face and no build output said so. `assetsInlineLimit: 0` in `build` below
+ * stops the inlining rather than widening the policy to match it, which also
+ * drops a font that used to be shipped twice — once base64 in the stylesheet,
+ * once as a real file.
+ *
+ * The two remaining relaxations are consequences of the toolchain too:
+ * `wasm-unsafe-eval` because Argon2id is a WASM module, `'unsafe-inline'` for
+ * `style-src` because React writes inline `style` attributes. Neither can be
+ * asserted from the bundle, so they are stated here. `.github/workflows/ci.yml`
+ * checks the rest of the policy against the real build output, so a toolchain
+ * change cannot reopen the inlining question without failing a run.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' 'wasm-unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data:",
-  "font-src 'self' data:",
+  "img-src 'self'",
+  "font-src 'self'",
   "connect-src 'self' https://api.pwnedpasswords.com",
   "worker-src 'self'",
   "manifest-src 'self'",
@@ -157,6 +172,7 @@ export default defineConfig(() => {
     build: {
       target: 'es2022',
       sourcemap: false,
+      assetsInlineLimit: 0,
     },
   }
 })

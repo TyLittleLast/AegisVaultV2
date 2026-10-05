@@ -16,7 +16,7 @@
 | Crypto (chiffrement) | Web Crypto API (AES-256-GCM) |                                        |
 | Anti-fuite           | HIBP Pwned Passwords API     | opt-in, k-anonymat                     |
 | PWA                  | `vite-plugin-pwa`            | shell seul, jamais le coffre           |
-| Tests                | Vitest 5 + Testing Library   | 238 tests, jsdom                       |
+| Tests                | Vitest 5 + Testing Library   | 245 tests, jsdom                       |
 
 Il n'y a **pas** de `tailwind.config.js` ni de `postcss.config.js` : Tailwind v4 passe par le
 plugin `@tailwindcss/vite` et se configure dans `src/index.css`. `postcss` et `autoprefixer` ont
@@ -92,6 +92,38 @@ l'application n'effectue aucune requête réseau.
 
 **Le mot de passe complet ne quitte jamais le navigateur.** La CSP le garantit :
 `connect-src 'self' https://api.pwnedpasswords.com` — c'est la seule destination réseau autorisée.
+
+---
+
+## Content Security Policy
+
+Écrite à la main dans `vite.config.ts` et injectée dans `index.html` au build. État vérifié du
+bundle courant :
+
+```
+default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline';
+img-src 'self'; font-src 'self';
+connect-src 'self' https://api.pwnedpasswords.com; worker-src 'self';
+manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'
+```
+
+Les deux seules inconnues sont dictées par l'outillage et ne peuvent pas être déduites du
+bundle : `wasm-unsafe-eval` parce qu'Argon2id est un module WebAssembly, `unsafe-inline` parce
+que React écrit des attributs `style` en ligne.
+
+**`data:` n'est autorisé nulle part.** Vite inlines tout asset sous `assetsInlineLimit`
+(4 KB par défaut) sans le dire, et un sous-ensemble @fontsource passait sous la limite : il
+sortait en `url(data:font/woff2;base64,…)`, que `font-src 'self'` bloquait — une poignée de
+glyphes retombaient silencieusement sur une police système, et **seul un navigateur pouvait le
+voir**. `assetsInlineLimit: 0` supprime l'inlining au lieu d'élargir la politique pour
+l'accepter ; le sous-ensemble cyrillique de JetBrains Mono n'est plus livré deux fois (base64
+dans la feuille de style _et_ fichier réel).
+
+La CI réassert cette politique contre la sortie réelle du build, en lisant la valeur de chaque
+directive séparément — le HTML échappe les apostrophes en `&#39;`, et une correspondance sur
+la balise entière accepterait une expression d'une _autre_ directive. Les branches `data:` sont
+dormantes aujourd'hui : elles servent à échouer bruyamment si un changement d'outillage réinline
+un asset, pas à décrire le build actuel.
 
 ---
 

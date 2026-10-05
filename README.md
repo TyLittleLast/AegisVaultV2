@@ -205,7 +205,7 @@ npm run preview  # sert dist/ localement
 
 ## Tests
 
-238 tests sur 18 fichiers, exécutés par la CI sur Node 22 et 24.
+245 tests sur 18 fichiers, exécutés par la CI sur Node 22 et 24.
 
 La couverture n'est pas uniforme, et il vaut mieux le dire que l'arrondir vers le haut :
 
