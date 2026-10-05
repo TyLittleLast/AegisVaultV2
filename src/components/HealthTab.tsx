@@ -12,6 +12,8 @@ import {
 } from 'lucide-react'
 import { checkPasswordBreach } from '../services/hibpService'
 import { STRENGTH_THRESHOLDS, entropy as calcEntropy } from '../utils/password'
+import ScoreGauge from './ScoreGauge'
+import ServiceAvatar from './ServiceAvatar'
 import StorageCard from './StorageCard'
 import type { PersistenceOutcome, StorageDurability } from '../services/storageService'
 import type { EntrySearchMeta, VaultEntry } from '../types/vault'
@@ -36,6 +38,26 @@ interface EntryDiag {
 }
 
 type Filter = 'all' | 'pwned' | 'weak' | 'reused'
+
+type IssueKind = 'pwned' | 'weak' | 'reused'
+
+interface Issue {
+  entry: VaultEntry
+  kind: IssueKind
+  reusedOn: number
+}
+
+const ISSUE_LABEL: Record<IssueKind, string> = {
+  pwned: 'Compromis',
+  weak: 'Faible',
+  reused: 'Réutilisé',
+}
+
+const ISSUE_CHIP: Record<IssueKind, string> = {
+  pwned: 'bg-red-500/15 text-red-700',
+  weak: 'bg-orange-500/15 text-orange-700',
+  reused: 'bg-amber-500/15 text-amber-700',
+}
 
 function healthScore(pwned: boolean, bits: number, reused: boolean): number {
   if (pwned) return reused ? 10 : 15
@@ -130,6 +152,49 @@ export default function HealthTab({
     [entries, diags],
   )
 
+  /**
+   * One actionable row per entry, worst problem first. A compromised password
+   * outranks a weak one, which outranks mere reuse.
+   */
+  const issues = useMemo<Issue[]>(() => {
+    const list: Issue[] = []
+    for (const entry of entries) {
+      const d = diags[entry.id]
+      if (!d) continue
+      const kind: IssueKind | null =
+        d.pwnedCount > 0
+          ? 'pwned'
+          : d.entropy < STRENGTH_THRESHOLDS.strong
+            ? 'weak'
+            : d.reusedOn > 0
+              ? 'reused'
+              : null
+      if (kind) list.push({ entry, kind, reusedOn: d.reusedOn })
+    }
+    return list
+  }, [entries, diags])
+
+  /** Mutually exclusive buckets, so the segments always sum to the entry count. */
+  const distribution = useMemo(() => {
+    let compromised = 0
+    let weak = 0
+    let reused = 0
+    for (const entry of entries) {
+      const d = diags[entry.id]
+      if (!d) continue
+      if (d.pwnedCount > 0) compromised++
+      else if (d.entropy < STRENGTH_THRESHOLDS.strong) weak++
+      else if (d.reusedOn > 0) reused++
+    }
+    const safe = entries.length - compromised - weak - reused
+    return [
+      { key: 'ok', label: 'Sains', count: safe, color: '#059669' },
+      { key: 'reused', label: 'Réutilisés', count: reused, color: '#D97706' },
+      { key: 'weak', label: 'Faibles', count: weak, color: '#EA580C' },
+      { key: 'pwned', label: 'Compromis', count: compromised, color: '#DC2626' },
+    ]
+  }, [entries, diags])
+
   const filtered = entries.filter((e) => {
     const d = diags[e.id]
     if (filter === 'pwned') return (d?.pwnedCount ?? 0) > 0
@@ -167,37 +232,142 @@ export default function HealthTab({
         onRequestPersist={onRequestPersist}
       />
 
-      <div className="flex items-center gap-5 rounded-xl bg-white p-6 shadow-card">
-        <div className="text-5xl font-semibold tabular-nums text-ink">
-          {globalScore === null ? '—' : globalScore}
-          {globalScore !== null && <span className="text-2xl">%</span>}
+      {/* Action first: the list of things to fix is what the tab is for. */}
+      <section className="rounded-2xl bg-white p-5 shadow-card">
+        <header className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="m-0 text-sm font-semibold text-ink">Mots de passe à corriger</h2>
+            <p className="m-0 mt-0.5 text-xs text-inktext-faint">
+              {!auditedAt
+                ? 'Lancez l’analyse pour détecter les entrées à renforcer.'
+                : `${issues.length} entrée${issues.length > 1 ? 's' : ''} à traiter`}
+            </p>
+          </div>
+          {issues.length > 0 && (
+            <span className="shrink-0 rounded-full bg-red-500/15 px-3 py-1 text-xs font-semibold tabular-nums text-red-700">
+              {issues.length}
+            </span>
+          )}
+        </header>
+
+        {auditedAt && issues.length === 0 && (
+          <div className="flex items-center gap-2.5 rounded-xl bg-cream p-4 text-sm text-emerald-700">
+            <ShieldCheck size={16} className="shrink-0" />
+            Aucun mot de passe faible, compromis ou réutilisé.
+          </div>
+        )}
+
+        {!auditedAt && entries.length === 0 && (
+          <p className="rounded-xl bg-cream p-4 text-sm text-inktext-faint">
+            Le coffre est vide. Ajoutez un identifiant pour lancer une analyse.
+          </p>
+        )}
+
+        {issues.length > 0 && (
+          <ul className="flex flex-col gap-1">
+            {issues.slice(0, 8).map(({ entry, kind, reusedOn }) => {
+              const meta = searchIndex[entry.id]
+              const diag = diags[entry.id]
+              const detail =
+                kind === 'pwned'
+                  ? `${(diag?.pwnedCount ?? 0).toLocaleString('fr-FR')} occurrences`
+                  : kind === 'weak'
+                    ? `${diag?.entropy ?? 0} bits`
+                    : `${reusedOn} autre${reusedOn > 1 ? 's' : ''} compte${reusedOn > 1 ? 's' : ''}`
+              return (
+                <li
+                  key={entry.id}
+                  className="flex items-center gap-3 rounded-xl px-2 py-2 transition-colors duration-150 hover:bg-cream"
+                >
+                  <ServiceAvatar label={meta?.service ?? entry.id} size={30} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-inktext">
+                      {meta?.service ?? 'Entrée illisible'}
+                    </div>
+                    <div className="truncate text-xs text-inktext-faint">
+                      {meta?.username ?? '—'}
+                    </div>
+                  </div>
+                  <span
+                    className={`hidden shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium sm:inline ${ISSUE_CHIP[kind]}`}
+                    title={detail}
+                  >
+                    {ISSUE_LABEL[kind]}
+                  </span>
+                  <button
+                    onClick={() => void onFixEntry(entry.id)}
+                    className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-ink px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-ink-deep"
+                  >
+                    <Wrench size={11} /> Corriger
+                  </button>
+                </li>
+              )
+            })}
+            {issues.length > 8 && (
+              <li className="px-2 pt-1.5 text-xs text-inktext-faint">
+                et {issues.length - 8} autre{issues.length - 8 > 1 ? 's' : ''} entrée
+                {issues.length - 8 > 1 ? 's' : ''}…
+              </li>
+            )}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-2xl bg-white p-5 shadow-card">
+        <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-center">
+          <ScoreGauge score={globalScore} />
+
+          <div className="flex w-full min-w-0 flex-1 flex-col gap-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="m-0 text-sm font-semibold text-ink">Score de santé du coffre</h2>
+              <button
+                onClick={() => void runAudit()}
+                disabled={running || entries.length === 0}
+                className="flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-cream px-2.5 py-1.5 text-xs font-medium text-inktext-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <RefreshCw size={12} className={running ? 'animate-spin' : ''} />
+                {running ? 'Analyse…' : 'Analyser'}
+              </button>
+            </div>
+
+            <div>
+              <div className="flex h-2.5 overflow-hidden rounded-full bg-cream">
+                {distribution.map((seg) =>
+                  seg.count > 0 ? (
+                    <div
+                      key={seg.key}
+                      className="transition-[width] duration-700 ease-out"
+                      style={{
+                        width: `${(seg.count / Math.max(1, entries.length)) * 100}%`,
+                        backgroundColor: seg.color,
+                      }}
+                      title={`${seg.label} : ${seg.count}`}
+                    />
+                  ) : null,
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2">
+                {distribution.map((seg) => (
+                  <div key={seg.key} className="flex items-center gap-1.5">
+                    <span
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ backgroundColor: seg.color }}
+                    />
+                    <span className="text-xs text-inktext-muted">{seg.label}</span>
+                    <span className="ml-auto text-xs font-semibold tabular-nums text-inktext">
+                      {seg.count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {auditedLabel && (
+              <p className="m-0 text-xs text-inktext-faint">Dernière analyse à {auditedLabel}</p>
+            )}
+          </div>
         </div>
-        <div className="flex flex-1 flex-col gap-2">
-          <div className="flex justify-between text-sm text-inktext-muted">
-            <span>Score de santé du coffre</span>
-            <button
-              onClick={() => void runAudit()}
-              disabled={running || entries.length === 0}
-              className="flex cursor-pointer items-center gap-1.5 text-inktext-muted transition-colors hover:text-ink disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              <RefreshCw size={12} className={running ? 'animate-spin' : ''} />
-              {running ? 'Analyse…' : 'Analyser'}
-            </button>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-cream">
-            <div
-              className="h-full rounded-full bg-ink transition-all duration-700"
-              style={{ width: `${globalScore ?? 0}%` }}
-            />
-          </div>
-          <div className="flex flex-wrap gap-4 text-xs text-inktext-faint">
-            <span>{stats.pwned} compromis</span>
-            <span>{stats.weak} à revoir</span>
-            <span>{stats.reused} réutilisés</span>
-            {auditedLabel && <span>analysé à {auditedLabel}</span>}
-          </div>
-        </div>
-      </div>
+      </section>
 
       {entries.length > 0 && (
         <div className="flex flex-wrap gap-1.5">

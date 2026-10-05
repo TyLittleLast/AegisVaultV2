@@ -16,6 +16,7 @@ import {
   PanelLeftOpen,
 } from 'lucide-react'
 import ServiceAvatar from './ServiceAvatar'
+import EmptyState, { type EmptyStateVariant } from './EmptyState'
 import SearchField from './SearchField'
 import VaultDetailPanel from './VaultDetailPanel'
 import GeneratorTab from './GeneratorTab'
@@ -320,6 +321,31 @@ export default function MainLayout({
 
   const selectedEntry = selectedId ? (entries.find((e) => e.id === selectedId) ?? null) : null
 
+  /**
+   * Three distinct reasons for an empty list, each with its own illustration
+   * and its own way out — a generic "no result" dead-ends the user.
+   */
+  const emptyVariant: EmptyStateVariant =
+    entries.length === 0 ? 'vault' : query.trim() ? 'search' : 'filter'
+
+  const emptyCopy = {
+    vault: {
+      title: 'Votre coffre est vide',
+      description: 'Ajoutez votre premier identifiant pour commencer.',
+    },
+    search: {
+      title: 'Aucun résultat',
+      description: 'Aucun identifiant ne correspond à cette recherche.',
+    },
+    filter: {
+      title: 'Rien dans ce filtre',
+      description:
+        filter === 'favorites'
+          ? 'Marquez vos entrées favorites pour les retrouver ici.'
+          : 'Tous vos mots de passe atteignent le niveau « fort ».',
+    },
+  }[emptyVariant]
+
   function selectItem(id: string) {
     setSelectedId(id)
     if (isMobile) setMobileView('detail')
@@ -469,25 +495,39 @@ export default function MainLayout({
               />
             ))}
             {filtered.length === 0 && (
-              <div className="flex flex-1 flex-col items-center justify-center px-6 py-16 text-center">
-                <Vault size={22} strokeWidth={1.5} className="mb-3 text-inktext-faint" />
-                <p className="mb-1 text-sm font-medium text-inktext">
-                  {entries.length === 0 ? 'Votre coffre est vide' : 'Aucun résultat'}
-                </p>
-                <p className="mb-4 max-w-xs text-sm text-inktext-faint">
-                  {entries.length === 0
-                    ? 'Ajoutez votre premier identifiant pour commencer.'
-                    : 'Aucun identifiant ne correspond à votre recherche.'}
-                </p>
-                {entries.length === 0 && (
-                  <button
-                    className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink shadow-card"
-                    onClick={() => setShowModal(true)}
-                  >
-                    <Plus size={15} /> Ajouter
-                  </button>
-                )}
-              </div>
+              <EmptyState
+                variant={emptyVariant}
+                title={emptyCopy.title}
+                description={emptyCopy.description}
+                className="flex-1"
+                action={
+                  emptyVariant === 'vault' ? (
+                    <button
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink shadow-card"
+                      onClick={() => {
+                        setPrefillPwd('')
+                        setShowModal(true)
+                      }}
+                    >
+                      <Plus size={15} /> Ajouter
+                    </button>
+                  ) : emptyVariant === 'search' ? (
+                    <button
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink shadow-card"
+                      onClick={() => setQuery('')}
+                    >
+                      <Search size={15} /> Effacer la recherche
+                    </button>
+                  ) : filter !== 'all' ? (
+                    <button
+                      className="inline-flex cursor-pointer items-center gap-1.5 rounded-xl bg-white px-3.5 py-2 text-sm font-medium text-ink shadow-card"
+                      onClick={() => setFilter('all')}
+                    >
+                      Tous les identifiants
+                    </button>
+                  ) : undefined
+                }
+              />
             )}
           </div>
         )}
