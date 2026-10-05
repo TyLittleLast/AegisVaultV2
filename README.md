@@ -172,7 +172,7 @@ conteneur applicatif.
 
 ## Installation
 
-Prérequis : **Node.js ≥ 20**.
+Prérequis : **Node.js ≥ 22**.
 
 ```bash
 npm install
@@ -205,7 +205,7 @@ npm run preview  # sert dist/ localement
 
 ## Tests
 
-205 tests sur 16 fichiers, exécutés par la CI sur Node 20, 22 et 24.
+205 tests sur 16 fichiers, exécutés par la CI sur Node 22 et 24.
 
 La couverture n'est pas uniforme, et il vaut mieux le dire que l'arrondir vers le haut :
 
@@ -304,8 +304,13 @@ sont jamais touchées par le cache.
 ## CI
 
 `.github/workflows/ci.yml` exécute formatage, typecheck, lint, tests avec couverture et build sur
-Node 20, 22 et 24 — toutes les versions déclarées dans `engines`. Un second job audite le bundle de
+Node 22 et 24 — toutes les versions déclarées dans `engines`. Un second job audite le bundle de
 production à la recherche de chaînes ressemblant à des identifiants avant de le publier en artefact.
+
+Node 20 a été retiré de la matrice : il est en fin de vie, et `jsdom` 30 appelle
+`util.markAsUncloneable`, qui n'existe qu'à partir de Node 22. Sur Node 20, chaque worker de test
+mourait avant d'exécuter le moindre test — la couverture affichait 0 % et le job échouait sans que
+rien n'ait réellement été exécuté.
 
 Les seuils de couverture de `vitest.config.ts` sont **appliqués par la CI**, pas seulement en local :
 c'est ce qui leur donne un sens de plancher.

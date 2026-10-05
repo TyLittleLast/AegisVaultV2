@@ -21,8 +21,11 @@ jobs:
     strategy:
       # Every version in the package.json engines range is exercised, so the
       # declared range cannot drift away from what is actually supported.
+      # Node 20 is gone: it is end-of-life, and jsdom 30 needs
+      # util.markAsUncloneable, which only exists from Node 22 on, so on
+      # Node 20 every test worker died before a single test ran.
       matrix:
-        node: [20, 22, 24]
+        node: [22, 24]
       fail-fast: false
 
     steps:
