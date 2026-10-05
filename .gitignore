@@ -49,5 +49,8 @@ pnpm-debug.log*
 .clinerules
 Modelfile
 
+# Agent worktrees: a nested checkout with its own sources, tsconfig and history.
+.kilo/
+
 # AegisVault runtime export — never commit a real vault backup
 *.aegisvault.json

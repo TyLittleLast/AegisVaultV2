@@ -47,8 +47,9 @@ machine, et qui veut pouvoir le vérifier.
 | Chiffrement     | **AES-256-GCM** via Web Crypto              | AEAD : l'authentification est incluse, pas ajoutée                 |
 | IV              | 12 octets, **nouveau à chaque chiffrement** | Un IV réutilisé avec une même clé est catastrophique en GCM        |
 
-La clé est importée avec `extractable: false`. Elle n'est **jamais** sérialisée, jamais stockée,
-et n'existe que dans une `CryptoKey` en mémoire, confinée à `src/App.tsx`.
+La clé est importée avec `extractable: false`. Elle n'est **jamais** sérialisée, jamais stockée, et
+n'existe que dans une `CryptoKey` en mémoire, tenue par un `useRef` de `src/App.tsx` — un `ref`, pas
+un état React, donc jamais copiée dans un arbre sérialisable ni déclenchant de rendu.
 
 ### Une note honnête sur l'effacement mémoire
 
@@ -123,7 +124,10 @@ effectivement demandée et échoue si elle contient ne serait-ce que 40 caractè
   `connect-src 'self' https://api.pwnedpasswords.com` : elle transforme « aucun serveur » de promesse
   README en contrainte appliquée par le navigateur.
 - `referrer: no-referrer`, `<noscript>` explicatif, focus visible, `lang="fr"`.
-- Favicons générés localement (monogrammes), jamais de requête tierce par entrée.
+- Icônes de service générées **localement** : 76 logos du jeu _simple-icons_ (CC0-1.0) extraits
+  dans le bundle par `npm run gen:brands`, résolus hors-ligne à partir du nom saisi, avec repli sur
+  un monogramme. **Aucun favicon n'est jamais récupéré** : demander le favicon d'un service revient à
+  divulguer chaque entrée stockée à un tiers, et contredirait la promesse zero-knowledge.
 
 ## Verrouillage de session
 
@@ -182,26 +186,44 @@ npm run preview  # sert dist/ localement
 
 ### Scripts
 
-| Script                                      | Rôle                                               |
-| ------------------------------------------- | -------------------------------------------------- |
-| `npm run dev`                               | Serveur de développement Vite                      |
-| `npm run build`                             | Typecheck puis build de production                 |
-| `npm run preview`                           | Sert le build de production                        |
-| `npm run typecheck`                         | `tsc --noEmit`                                     |
-| `npm run lint`                              | ESLint (config plate, règles React Hooks activées) |
-| `npm run format` / `format:check`           | Prettier                                           |
-| `npm test` / `test:watch` / `test:coverage` | Vitest                                             |
-| `npm run check`                             | **Tout** : format, types, lint, tests, build       |
+| Script                                      | Rôle                                                        |
+| ------------------------------------------- | ----------------------------------------------------------- |
+| `npm run dev`                               | Serveur de développement Vite                               |
+| `npm run build`                             | Typecheck puis build de production                          |
+| `npm run preview`                           | Sert le build de production                                 |
+| `npm run typecheck`                         | `tsc --noEmit`                                              |
+| `npm run lint`                              | ESLint (config plate, règles React Hooks activées)          |
+| `npm run format` / `format:check`           | Prettier                                                    |
+| `npm test` / `test:watch` / `test:coverage` | Vitest                                                      |
+| `npm run gen:brands`                        | Régénère les icônes de marque depuis `scripts/`             |
+| `npm run check`                             | format, types, lint, tests, build — la base locale de la CI |
 
-`npm run check` est exactement ce que la CI exécute.
+`npm run check` est le même enchaînement que la CI, à deux exceptions près : la CI lance
+`test:coverage` (donc avec les seuils) et ajoute un job d'audit du bundle.
 
 ---
 
 ## Tests
 
-136 tests, couverture de **96 %** des instructions et **93 %** des branches sur `src/services` et
-`src/utils`, avec des seuils bloqués dans `vitest.config.ts` : une baisse de couverture fait échouer
-la CI.
+205 tests sur 16 fichiers, exécutés par la CI sur Node 20, 22 et 24.
+
+La couverture n'est pas uniforme, et il vaut mieux le dire que l'arrondir vers le haut :
+
+| Zone                                          | Lignes   |
+| --------------------------------------------- | -------- |
+| `cryptoService`, `vaultSchema`, `hibpService` | 100 %    |
+| `url`, `password`, `brandIcons`               | 93–100 % |
+| `SearchField`                                 | 100 %    |
+| `HealthTab`                                   | 95 %     |
+| `MainLayout`                                  | 57 %     |
+| `GeneratorTab`, `SettingsTab`                 | ~2 %     |
+
+Globalement, **63,8 % des instructions et 65,2 % des lignes**, toutes couches confondues. C'est ce
+chiffre-là qui est bloqué par un plancher dans `vitest.config.ts` : le faire baisser fait échouer la
+CI. La couche qui porte le risque est à 100 % ; l'interface est en retard, et le tableau le dit.
+
+Les seuils par glob de Vitest sont **silencieusement ignorés en 5.0.3** — vérifié en les plaçant à
+99 %, ils ne déclenchaient rien. Seul un objet global unique fonctionne.
 
 Les tests ciblent prioritairement les régressions silencieuses, celles qui ne cassent pas l'interface :
 
@@ -212,12 +234,14 @@ Les tests ciblent prioritairement les régressions silencieuses, celles qui ne c
   passe, rotation ré-écrivant tous les champs ;
 - **stockage** — relecture brute d'IndexedDB prouvant que seul du chiffré est persisté ;
 - **URL** — `javascript:`, `data:`, `file:` et la variante `javascript://` qui passe un
-  `includes('://')`.
+  `includes('://')` ;
+- **interface** — repli monogramme/marque, géométrie de la jauge hors bornes, `Escape` qui replie
+  sans vider la requête, ordre de tabulation d'un champ replié, filtrage et recherche de la liste.
 
-Les tests s'exécutent dans Node **sans shim DOM**, ce qui garantit que la couche service ne dépend
-d'aucun rendu. Seul IndexedDB est simulé (`fake-indexeddb`). Les paramètres Argon2 de production sont
-assertés par valeur ; les tests dérivent avec le coût minimal accepté par Argon2 pour rester sous
-deux secondes.
+Seul IndexedDB est simulé (`fake-indexeddb`). La suite tourne sous **jsdom** pour les tests de
+composants, qui rendent React pour de vrai ; `crypto.subtle` et `fetch` restent ceux de Node. Les
+paramètres Argon2 de production sont assertés par valeur ; les tests dérivent avec le coût minimal
+accepté par Argon2 pour rester sous deux secondes.
 
 > Un bug réel a été trouvé par cette suite : la condition d'échantillonnage par rejet de
 > `randomIntBelow` était inversée, ce qui gelait le générateur de mots de passe au lieu de produire un
@@ -229,15 +253,22 @@ deux secondes.
 
 ```
 src/
-├── App.tsx                    orchestration,session, déverrouillage
+├── App.tsx                    orchestration, session, déverrouillage
 ├── components/
-│   ├── MainLayout.tsx         dock, en-tête, grille
+│   ├── MainLayout.tsx         dock, en-tête, liste, filtres, états vides
+│   ├── SearchField.tsx        recherche repliable (Ctrl/Cmd+K)
 │   ├── VaultDetailPanel.tsx   révélation, analyse, HIBP
 │   ├── GeneratorTab.tsx       générateur local
 │   ├── AddEntryModal.tsx
-│   ├── HealthTab.tsx          diagnostic du coffre
+│   ├── HealthTab.tsx          diagnostic du coffre, score, jauge
 │   ├── SettingsTab.tsx
-│   └── ServiceAvatar.tsx      monogrammes locaux
+│   ├── StorageCard.tsx        quota IndexedDB et persistence
+│   ├── ServiceAvatar.tsx      marque locale ou monogramme
+│   ├── EmptyState.tsx         illustrations d'état vide
+│   └── ScoreGauge.tsx         jauge semicirculaire
+├── data/
+│   ├── brandIcons.ts          résolution nom -> marque
+│   └── brandIcons.generated.ts  généré par npm run gen:brands
 ├── hooks/
 │   ├── useIdleLock.ts
 │   └── useIsMobile.ts
@@ -248,10 +279,14 @@ src/
 │   ├── storageService.ts      IndexedDB, réglages, compteur d'échecs
 │   └── hibpService.ts         k-anonymat
 ├── utils/
-│   ├── password.ts            entropie, Classes, générateur
+│   ├── password.ts            entropie, classes, générateur
 │   ├── url.ts                 allowlist de protocoles
 │   └── clipboard.ts           copie + effacement programmé
 └── types/vault.ts             types partagés
+
+scripts/
+├── brand-manifest.mjs         slugs et alias, curatés à la main
+└── generate-brand-icons.mjs   npm run gen:brands
 ```
 
 Le contexte technique et les décisions de conception sont dans [`CONTEXT.md`](./CONTEXT.md).
