@@ -1,10 +1,12 @@
-import { HardDrive, ShieldCheck, ShieldAlert, RefreshCw } from 'lucide-react'
-import type { StorageDurability } from '../services/storageService'
+import { HardDrive, ShieldCheck, ShieldAlert, RefreshCw, Info } from 'lucide-react'
+import type { PersistenceOutcome, StorageDurability } from '../services/storageService'
 
 interface StorageCardProps {
   durability: StorageDurability | null
   /** True while a persist() request is in flight. */
   requesting: boolean
+  /** Verdict of the last request, so a refusal can be explained. */
+  persistOutcome: PersistenceOutcome
   onRequestPersist: () => void
 }
 
@@ -32,10 +34,12 @@ function formatBytes(bytes: number): string {
 export default function StorageCard({
   durability,
   requesting,
+  persistOutcome,
   onRequestPersist,
 }: StorageCardProps) {
   const persisted = durability?.persisted ?? false
   const { usageBytes, quotaBytes } = durability ?? { usageBytes: null, quotaBytes: null }
+  const refused = !persisted && persistOutcome === 'refused'
 
   const ratio =
     usageBytes !== null && quotaBytes !== null && quotaBytes > 0
@@ -57,12 +61,28 @@ export default function StorageCard({
           <p className="text-xs leading-relaxed text-inktext-faint">
             {persisted
               ? 'Ce coffre est protégé contre l’éviction automatique par le navigateur.'
-              : 'Le navigateur peut effacer ce coffre s’il manque de place. Demandez la persistance, et exportez régulièrement une sauvegarde.'}
+              : refused
+                ? 'Le navigateur a refusé la persistance. Ce coffre peut donc être effacé s’il manque de place.'
+                : 'Le navigateur peut effacer ce coffre s’il manque de place. Demandez la persistance, et exportez régulièrement une sauvegarde.'}
           </p>
         </div>
       </div>
 
-      {!persisted && (
+      {/* A refusal replaces the button: asking again would only be refused
+          again. What actually moves the needle is install or bookmark. */}
+      {refused && (
+        <p className="flex items-start gap-2 rounded-xl bg-cream px-3 py-2 text-[11.5px] leading-relaxed text-inktext-muted">
+          <Info size={13} className="mt-0.5 shrink-0" />
+          <span>
+            Cette décision dépend de votre engagement, pas d’un réglage : installez AegisVault comme
+            application, ou ajoutez cette page en favori. Le statut est revérifié à chaque retour
+            sur l’onglet. En attendant, exportez une sauvegarde — c’est la seule copie hors de cette
+            machine.
+          </span>
+        </p>
+      )}
+
+      {!persisted && !refused && (
         <button
           onClick={onRequestPersist}
           disabled={requesting}

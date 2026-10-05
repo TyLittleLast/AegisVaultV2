@@ -35,6 +35,70 @@ describe('durabilité du stockage', () => {
       installStorageManager({} as Partial<StorageManager>)
       await expect(requestPersistentStorage()).resolves.toBe(false)
     })
+
+    // Regression: the verdict used to be discarded by the caller, which left a
+    // button on screen that could never succeed and gave no feedback.
+    it('reflète un accord suivi d un état persisté', async () => {
+      let persisted = false
+      installStorageManager({
+        persist: async () => {
+          persisted = true
+          return true
+        },
+        persisted: async () => persisted,
+        estimate: async () => ({ usage: 512, quota: 4096 }),
+      } as Partial<StorageManager>)
+
+      await expect(requestPersistentStorage()).resolves.toBe(true)
+      await expect(readStorageDurability()).resolves.toEqual({
+        persisted: true,
+        usageBytes: 512,
+        quotaBytes: 4096,
+      })
+    })
+
+    it('reflète un refus sans laisser croire à une protection', async () => {
+      installStorageManager({
+        persist: async () => false,
+        persisted: async () => false,
+        estimate: async () => ({ usage: 512, quota: 4096 }),
+      } as Partial<StorageManager>)
+
+      await expect(requestPersistentStorage()).resolves.toBe(false)
+      const durability = await readStorageDurability()
+      expect(durability.persisted).toBe(false)
+      expect(durability.usageBytes).toBe(512)
+    })
+
+    it('ne repasse jamais à un état protégé après un refus', async () => {
+      installStorageManager({
+        persist: async () => false,
+        persisted: async () => false,
+      } as Partial<StorageManager>)
+
+      await requestPersistentStorage()
+      await requestPersistentStorage()
+      await requestPersistentStorage()
+      await expect(readStorageDurability()).resolves.toMatchObject({ persisted: false })
+    })
+
+    it('bascule à laccordé une fois le statut réellement changé', async () => {
+      // Installing the app or bookmarking it can flip the decision later, which
+      // is why the card re-reads on visibilitychange rather than caching a
+      // verdict forever.
+      let persisted = false
+      installStorageManager({
+        persist: async () => {
+          persisted = true
+          return true
+        },
+        persisted: async () => persisted,
+      } as Partial<StorageManager>)
+
+      await expect(readStorageDurability()).resolves.toMatchObject({ persisted: false })
+      await requestPersistentStorage()
+      await expect(readStorageDurability()).resolves.toMatchObject({ persisted: true })
+    })
   })
 
   describe('readStorageDurability', () => {

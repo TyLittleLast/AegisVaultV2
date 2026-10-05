@@ -34,6 +34,7 @@ import {
   saveVault,
   readStorageDurability,
   requestPersistentStorage,
+  type PersistenceOutcome,
   type StorageDurability,
   type UnlockAttempts,
 } from './services/storageService'
@@ -344,6 +345,12 @@ export default function App() {
   const [attempts, setAttempts] = useState<UnlockAttempts>(EMPTY_ATTEMPTS)
   const [durability, setDurability] = useState<StorageDurability | null>(null)
   const [requestingPersist, setRequestingPersist] = useState(false)
+  /**
+   * Verdict of the last persist() request. Kept separately from `durability`
+   * because a refusal is information the user needs: the button stays visible
+   * forever otherwise, and clicking it again changes nothing.
+   */
+  const [persistOutcome, setPersistOutcome] = useState<PersistenceOutcome>('idle')
 
   const refreshDurability = useCallback(async () => {
     setDurability(await readStorageDurability())
@@ -352,11 +359,23 @@ export default function App() {
   const handleRequestPersist = useCallback(async () => {
     setRequestingPersist(true)
     try {
-      await requestPersistentStorage()
+      const granted = await requestPersistentStorage()
+      setPersistOutcome(granted ? 'granted' : 'refused')
       await refreshDurability()
     } finally {
       setRequestingPersist(false)
     }
+  }, [refreshDurability])
+
+  // Persistence status can change without a reload, once the app is installed
+  // or bookmarked. Re-reading on the way back to the tab means the card tells
+  // the truth at the moment it is being looked at.
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void refreshDurability()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
   }, [refreshDurability])
 
   const lock = useCallback(() => {
@@ -399,8 +418,9 @@ export default function App() {
   useEffect(() => {
     if (screen !== 'unlocked') return
     void (async () => {
-      await refreshDurability()
-      if (!(await readStorageDurability()).persisted) {
+      const current = await readStorageDurability()
+      setDurability(current)
+      if (!current.persisted) {
         await handleRequestPersist()
       }
     })()
@@ -687,6 +707,7 @@ export default function App() {
       onRevealAll={revealAllForAudit}
       durability={durability}
       requestingPersist={requestingPersist}
+      persistOutcome={persistOutcome}
       onRequestPersist={() => void handleRequestPersist()}
     />
   )
