@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Vault,
   KeyRound,
@@ -16,6 +16,7 @@ import {
   PanelLeftOpen,
 } from 'lucide-react'
 import ServiceAvatar from './ServiceAvatar'
+import SearchField from './SearchField'
 import VaultDetailPanel from './VaultDetailPanel'
 import GeneratorTab from './GeneratorTab'
 import HealthTab from './HealthTab'
@@ -244,6 +245,33 @@ export default function MainLayout({
   const [prefillPwd, setPrefillPwd] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [searchOpen, setSearchOpen] = useState(false)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Focus has to wait for the expanding element to exist, otherwise the caret
+  // lands nowhere.
+  const openSearch = useCallback(() => {
+    setSearchOpen(true)
+    requestAnimationFrame(() => {
+      searchInputRef.current?.focus()
+      searchInputRef.current?.select()
+    })
+  }, [])
+
+  const closeSearch = useCallback(() => setSearchOpen(false), [])
+
+  // Ctrl/Cmd+K from anywhere, the convention every list-based tool shares.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        if (searchOpen) closeSearch()
+        else openSearch()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [searchOpen, openSearch, closeSearch])
   const [filter, setFilter] = useState<Filter>('all')
   const [mobileView, setMobileView] = useState<MobileView>('list')
   const [sidebarOpen, setSidebarOpen] = useState(() => {
@@ -323,16 +351,28 @@ export default function MainLayout({
             <h1 className="m-0 shrink-0 text-xl font-semibold tracking-[-0.04em] md:text-[22px]">
               Coffre
             </h1>
-            <label className="flex min-w-0 flex-1 items-center gap-2">
-              <Search size={16} className="shrink-0 text-inktext-faint" />
-              <span className="sr-only">Rechercher dans le coffre</span>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Rechercher…"
-                className="min-w-0 w-full border-0 bg-transparent py-1.5 text-sm text-inktext outline-none placeholder:text-inktext-faint"
-              />
-            </label>
+
+            {/* Desktop: unfolds into the gap between the title and the buttons.
+                The grid-template-columns transition is the only reliable way to
+                animate to an intrinsic width without measuring anything. */}
+            {!isMobile && (
+              <div
+                className={`grid min-w-0 flex-1 justify-end transition-[grid-template-columns] duration-200 ease-out ${
+                  searchOpen ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <SearchField
+                    ref={searchInputRef}
+                    value={query}
+                    onChange={setQuery}
+                    onClose={closeSearch}
+                    inactive={!searchOpen}
+                  />
+                </div>
+              </div>
+            )}
+
             <button
               className="inline-flex h-9 shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-xl bg-white px-3 text-sm font-medium text-ink shadow-card transition-colors duration-150 hover:bg-white"
               onClick={() => {
@@ -344,7 +384,34 @@ export default function MainLayout({
               <Plus size={16} />
               <span className="hidden sm:inline">Ajouter</span>
             </button>
+
+            {/* Collapsed affordance. A dot marks an active filter so closing the
+                field never silently hides the fact that the list is filtered. */}
+            <button
+              onClick={() => (searchOpen ? closeSearch() : openSearch())}
+              aria-label={searchOpen ? 'Fermer la recherche' : 'Rechercher'}
+              aria-expanded={searchOpen}
+              className="relative inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl text-inktext-muted transition-colors duration-150 hover:bg-white hover:text-ink"
+            >
+              <Search size={16} />
+              {!searchOpen && query && (
+                <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-ink" />
+              )}
+            </button>
           </div>
+
+          {/* Mobile: a full-width row beats an unfold that would push the
+              buttons off-screen. */}
+          {isMobile && searchOpen && (
+            <div className="mb-3">
+              <SearchField
+                ref={searchInputRef}
+                value={query}
+                onChange={setQuery}
+                onClose={closeSearch}
+              />
+            </div>
+          )}
 
           <div className="mb-4 flex items-center gap-2">
             <div className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
