@@ -7,7 +7,10 @@
 
 AegisVault est un coffre-fort de mots de passe 100 % navigateur (React 18 + Vite + Tailwind + Web Crypto + hash-wasm), sans backend. L'utilisateur veut (a) l'utiliser personnellement et (b) le présenter à des recruteurs via un repo GitHub.
 
-État actuel : les primitives cryptographiques sont correctes (Argon2id m=64 MiB/t=3/p=1, conforme RFC 9106 2e option ; clé AES non extractible ; canary type Bitwarden), mais le modèle de données ne chiffre que le mot de passe, la sécurité de session est incomplète, et le repo ne contient ni README, ni tests, ni linter.
+État atteint : toutes les phases 0 à 12 sont mergées dans `main`. Le modèle de données chiffre
+champ par champ, la sécurité de session est complète, et le repo contient README, tests, linter et
+CI. Le seul point de cette feuille de route qui reste ouvert est `noUncheckedIndexedAccess`
+(phase 8-12), non activé dans `tsconfig.json`.
 
 **Décisions actées :**
 
@@ -63,19 +66,25 @@ export interface AppSettings {
 
 ## Phases
 
-| Phase | Branche                         | Contenu                                                                  |
-| ----- | ------------------------------- | ------------------------------------------------------------------------ |
-| 0     | `chore/repo-hygiene`            | `git init`, `.gitignore`, `LICENSE`, suppression code mort               |
-| 1-2   | `feat/per-field-encryption`     | Modèle v2, chiffrement par champ, `searchIndex`                          |
-| 3     | `feat/session-security`         | Presse-papiers TTL, auto-lock inactivité, lock sur blur, limite d'échecs |
-| 4     | `feat/master-password-rotation` | Changement de mot de passe maître                                        |
-| 5-6   | `feat/privacy-hardening`        | Suppression favicon/CDN, UI honnête, CSP, `hibpService` robuste          |
-| 7     | `refactor/dry-and-modules`      | `utils/password.ts`, hooks, découpage, `ErrorBoundary`                   |
-| 8     | `test/vitest-suite`             | Tests crypto, k-anonymat, URL, clipboard                                 |
-| 9     | `chore/tooling-and-ci`          | ESLint 9, Prettier, CI                                                   |
-| 10    | `build/tailwind-v4-vite-7`      | Migration Tailwind v4 / Vite 7                                           |
-| 11    | `feat/pwa-offline`              | Manifest, service worker, `storage.persist`                              |
-| 12    | `docs/threat-model-readme`      | README, modèle de menace                                                 |
+Toutes mergées dans `main`. La colonne _branche_ est conservée comme archive de l'historique, pas
+comme consigne : ces noms n'existent plus.
+
+| Phase | Branche                         | Contenu                                                                  | État |
+| ----- | ------------------------------- | ------------------------------------------------------------------------ | ---- |
+| 0     | `chore/repo-hygiene`            | `git init`, `.gitignore`, `LICENSE`, suppression code mort               | fait |
+| 1-2   | `feat/per-field-encryption`     | Modèle v2, chiffrement par champ, `searchIndex`                          | fait |
+| 3     | `feat/session-security`         | Presse-papiers TTL, auto-lock inactivité, lock sur blur, limite d'échecs | fait |
+| 4     | `feat/master-password-rotation` | Changement de mot de passe maître                                        | fait |
+| 5-6   | `feat/privacy-hardening`        | Suppression favicon/CDN, UI honnête, CSP, `hibpService` robuste          | fait |
+| 7     | `refactor/dry-and-modules`      | `utils/password.ts`, hooks, découpage, `ErrorBoundary`                   | fait |
+| 8     | `test/vitest-suite`             | Tests crypto, k-anonymat, URL, clipboard                                 | fait |
+| 9     | `chore/tooling-and-ci`          | ESLint 9, Prettier, CI                                                   | fait |
+| 10    | `build/tailwind-v4-vite-7`      | Migration Tailwind v4 / Vite 7                                           | fait |
+| 11    | `feat/pwa-offline`              | Manifest, service worker, `storage.persist`                              | fait |
+| 12    | `docs/threat-model-readme`      | README, modèle de menace                                                 | fait |
+
+Travaux postérieurs à cette feuille de route : recherche repliable, icônes de marque locales,
+états vides illustrés, refonte de l'onglet Santé. Voir `CONTEXT.md` pour l'état courant.
 
 ### Phase 0 — Hygiène du repo
 
@@ -127,7 +136,9 @@ Répond à la préoccupation « quelqu'un d'autre utilise l'ordi ».
 ### Phase 8-12 — Tests, outillage, build, PWA, docs
 
 - Vitest : crypto, k-anonymat (le mot de passe complet n'apparaît jamais dans l'URL), URL, clipboard.
-- ESLint 9 flat config, Prettier 3, `noUncheckedIndexedAccess`, GitHub Actions.
+- ESLint 9 flat config, Prettier 3, GitHub Actions.
+- `noUncheckedIndexedAccess` — **reste à faire.** Non activé dans `tsconfig.json` ; l'activation
+  fera probablement remonter des assertions `!` à justifier une par une.
 - Tailwind v4 (`@theme`, plugin Vite) — **attention au renommage de l'échelle des shadows**.
 - PWA : manifest, service worker (**shell seul, jamais le coffre**), `navigator.storage.persist()`.
 - README avec modèle de menace explicite.
