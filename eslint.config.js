@@ -42,7 +42,7 @@ export default tseslint.config(
 
   {
     // Tests may reach into looser shapes to prove the validators reject them.
-    files: ['src/**/*.test.ts', 'src/test/**/*.ts'],
+    files: ['src/**/*.test.{ts,tsx}', 'src/test/**/*.ts'],
     rules: {
       '@typescript-eslint/no-explicit-any': 'off',
     },
