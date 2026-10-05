@@ -15,6 +15,20 @@ const CHARSETS = {
 
 export const MIN_PASSWORD_LENGTH = 8
 
+/**
+ * Whether a master password may be used to *create* a vault.
+ *
+ * Enforced at creation only, never at unlock. A vault that already exists may
+ * hold a shorter password — imported from elsewhere, or created before this
+ * rule existed — and refusing to even submit it would strand its contents with
+ * no recovery path, since there is no server to reset against.
+ *
+ * @see src/App.tsx handleSetup
+ */
+export function meetsMinimumMasterPasswordLength(password: string): boolean {
+  return password.length >= MIN_PASSWORD_LENGTH
+}
+
 export interface GeneratorOptions {
   length?: number
   upper?: boolean

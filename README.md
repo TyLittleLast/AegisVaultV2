@@ -309,8 +309,10 @@ Le déploiement est un bundle statique sur GitHub Pages, publié par `.github/wo
 uniquement après un run de CI **vert**, et depuis le SHA exact que la CI a testé. Un commit rouge
 n'atteint donc jamais l'URL publique.
 
-Comme Pages sert le site sous un sous-chemin (`/AegisVaultV2/`), `vite build` émet des URL absolues
-de ce sous-chemin. Seul le build est concerned : `npm run dev` reste à la racine, sans préfixe.
+Comme Pages sert le site sous un sous-chemin (`/AegisVaultV2/`), le build de production y est émis
+via la variable d'environnement `PUBLIC_BASE`. Son défaut est la racine : `npm run dev` et
+`npm run preview` servent donc à la racine, sans surprise, et seuls les deux jobs qui ciblent Pages
+l'activent explicitement — l'artefact audité en CI est donc exactement celui qui est déployé.
 
 ## CI
 

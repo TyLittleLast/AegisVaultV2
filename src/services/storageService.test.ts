@@ -16,12 +16,18 @@ import {
   saveVault,
 } from './storageService'
 import { encryptEntry } from './vaultCrypto'
-import { deriveKey } from './cryptoService'
+import { DEFAULT_KDF, deriveKey } from './cryptoService'
 import { diagnoseVault } from './vaultSchema'
 import type { UnlockAttempts } from './storageService'
-import type { KdfParams, VaultStore } from '../types/vault'
+import type { VaultStore } from '../types/vault'
 
-const TEST_KDF: KdfParams = { algo: 'argon2id', m: 64, t: 1, p: 1, dkLen: 32 }
+/**
+ * Production parameters, not the reduced-cost ones the crypto suites use to stay
+ * fast. This suite never derives a key, and `diagnoseVault` now rejects costs
+ * outside `KDF_LIMITS` — a fixture pinned to `m: 64` would make every store
+ * round-trip look corrupt.
+ */
+const TEST_KDF = DEFAULT_KDF
 
 /** Reads the raw persisted bytes, bypassing the typed API. */
 async function rawVault(): Promise<unknown> {

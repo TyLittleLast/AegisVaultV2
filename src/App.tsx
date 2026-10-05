@@ -42,7 +42,12 @@ import MainLayout from './components/MainLayout'
 import { useIdleLock } from './hooks/useIdleLock'
 import { useIsMobile } from './hooks/useIsMobile'
 import { clearClipboard } from './utils/clipboard'
-import { entropy, generateStrongPassword } from './utils/password'
+import {
+  entropy,
+  generateStrongPassword,
+  meetsMinimumMasterPasswordLength,
+  MIN_PASSWORD_LENGTH,
+} from './utils/password'
 import {
   VAULT_FORMAT_VERSION,
   type AppSettings,
@@ -135,8 +140,11 @@ function LoginScreen({
       setError(`Déverrouillage temporaire. Réessayez dans ${remaining} s.`)
       return
     }
-    if (password.length < 8) {
-      setError('Minimum 8 caractères requis.')
+    // Length is a *creation* rule, not an unlock rule: an existing vault may
+    // hold a shorter password, and blocking the submit would make its contents
+    // unrecoverable. handleSetup enforces it authoritatively.
+    if (isSetup && !meetsMinimumMasterPasswordLength(password)) {
+      setError(`Minimum ${MIN_PASSWORD_LENGTH} caractères requis.`)
       return
     }
     if (isSetup && password !== confirm) {
@@ -432,6 +440,11 @@ export default function App() {
   }, [])
 
   const handleSetup = useCallback(async (masterPwd: string) => {
+    // The single authoritative check for the creation rule. The login screen
+    // mirrors it for feedback, but it is not what makes the rule true.
+    if (!meetsMinimumMasterPasswordLength(masterPwd)) {
+      throw new Error(`Minimum ${MIN_PASSWORD_LENGTH} caractères requis.`)
+    }
     const kdf = DEFAULT_KDF
     const salt = generateSalt()
     const key = await deriveKey(masterPwd, salt, kdf)
@@ -559,8 +572,10 @@ export default function App() {
   const handleChangeMasterPassword = useCallback(async (currentPwd: string, newPwd: string) => {
     const diagnosis = diagnoseVault(await loadVault())
     if (diagnosis.kind !== 'current') throw new Error('Aucun coffre à ré-chiffrer.')
-    if (newPwd.length < 8)
-      throw new Error('Le nouveau mot de passe doit faire au moins 8 caractères.')
+    if (!meetsMinimumMasterPasswordLength(newPwd))
+      throw new Error(
+        `Le nouveau mot de passe doit faire au moins ${MIN_PASSWORD_LENGTH} caractères.`,
+      )
     if (currentPwd === newPwd) throw new Error('Le nouveau mot de passe doit être différent.')
 
     const stored = diagnosis.store

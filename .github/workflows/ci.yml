@@ -57,10 +57,16 @@ jobs:
 
   # The deployed artefact is a static bundle, so it is worth proving once that
   # the build output contains no plaintext credential or vault data.
+  #
+  # Built with the same PUBLIC_BASE as the deploy job, so what is audited here
+  # is byte-for-byte what Pages serves. Auditing a differently-based build
+  # would leave the actual artefact unchecked.
   bundle-audit:
     name: Bundle audit
     runs-on: ubuntu-latest
     needs: verify
+    env:
+      PUBLIC_BASE: /AegisVaultV2/
     steps:
       - uses: actions/checkout@v7
 

@@ -5,8 +5,9 @@ import {
   isKdfParams,
   isLegacyVaultStore,
   isVaultStore,
+  KDF_LIMITS,
 } from './vaultSchema'
-import { VAULT_FORMAT_VERSION, type VaultStore } from '../types/vault'
+import { VAULT_FORMAT_VERSION, type KdfParams, type VaultStore } from '../types/vault'
 
 const PAYLOAD = { iv: 'aXYtZXhhbXBsZQ==', ciphertext: 'Y2lwaGVydGV4dA==' }
 
@@ -35,6 +36,15 @@ describe('isEncryptedPayload', () => {
 })
 
 describe('isKdfParams', () => {
+  const kdf = (over: Partial<KdfParams> = {}) => ({
+    algo: 'argon2id',
+    m: 65_536,
+    t: 3,
+    p: 1,
+    dkLen: 32,
+    ...over,
+  })
+
   it("n'accepte que argon2id avec des coûts positifs", () => {
     expect(isKdfParams({ algo: 'argon2id', m: 65536, t: 3, p: 1, dkLen: 32 })).toBe(true)
     expect(isKdfParams({ algo: 'pbkdf2', m: 65536, t: 3, p: 1, dkLen: 32 })).toBe(false)
@@ -42,6 +52,42 @@ describe('isKdfParams', () => {
     expect(isKdfParams({ algo: 'argon2id', m: -1, t: 3, p: 1, dkLen: 32 })).toBe(false)
     expect(isKdfParams({ algo: 'argon2id', m: 'lots', t: 3, p: 1, dkLen: 32 })).toBe(false)
     expect(isKdfParams(null)).toBe(false)
+  })
+
+  // A vault file is untrusted input: these parameters are fed straight to
+  // deriveKey on the main thread, so an unbounded value is a self-inflicted
+  // denial of service with no server-side reset to recover from.
+  it('refuse un coût qui gèlerait le déverrouillage', () => {
+    expect(isKdfParams(kdf({ t: 10_000_000 }))).toBe(false)
+    expect(isKdfParams(kdf({ m: 64 * 1024 * 1024 }))).toBe(false)
+    expect(isKdfParams(kdf({ p: 4_096 }))).toBe(false)
+  })
+
+  it('refuse un coût trivial', () => {
+    expect(isKdfParams(kdf({ t: 0 }))).toBe(false)
+    expect(isKdfParams(kdf({ p: 0 }))).toBe(false)
+    expect(isKdfParams(kdf({ m: 8 }))).toBe(false)
+  })
+
+  it('respecte la contrainte argon2 m >= 8 * p', () => {
+    expect(isKdfParams(kdf({ p: 2, m: 16 }))).toBe(false)
+    expect(isKdfParams(kdf({ p: 2, m: 8_192 }))).toBe(true)
+  })
+
+  it("refuse une clé dérivée qui n'est pas en AES-256", () => {
+    expect(isKdfParams(kdf({ dkLen: 16 }))).toBe(false)
+    expect(isKdfParams(kdf({ dkLen: 24 }))).toBe(false)
+    expect(isKdfParams(kdf({ dkLen: 64 }))).toBe(false)
+  })
+
+  it('refuse des coûts non entiers', () => {
+    expect(isKdfParams(kdf({ m: 65_536.5 }))).toBe(false)
+    expect(isKdfParams(kdf({ t: 3.5 }))).toBe(false)
+  })
+
+  it('accepte les bornes publiées pour une migration ultérieure', () => {
+    expect(isKdfParams(kdf({ m: KDF_LIMITS.minMemoryKiB, t: 1 }))).toBe(true)
+    expect(isKdfParams(kdf({ m: KDF_LIMITS.maxMemoryKiB, t: KDF_LIMITS.maxIterations }))).toBe(true)
   })
 })
 

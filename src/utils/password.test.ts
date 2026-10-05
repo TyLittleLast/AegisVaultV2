@@ -7,6 +7,7 @@ import {
   generatePassword,
   generateStrongPassword,
   grade,
+  meetsMinimumMasterPasswordLength,
   poolEntropy,
 } from './password'
 
@@ -220,6 +221,18 @@ describe('generatePassword', () => {
 
   it('expose une longueur minimale cohérente', () => {
     expect(MIN_PASSWORD_LENGTH).toBe(8)
+  })
+
+  // The rule exists to keep new vaults from being weak. It must never gate an
+  // unlock: an existing vault may hold a shorter password, and refusing the
+  // submit would strand its contents with no recovery path.
+  describe('meetsMinimumMasterPasswordLength', () => {
+    it('refuse ce qui est trop court et accepte la borne', () => {
+      expect(meetsMinimumMasterPasswordLength('')).toBe(false)
+      expect(meetsMinimumMasterPasswordLength('a'.repeat(MIN_PASSWORD_LENGTH - 1))).toBe(false)
+      expect(meetsMinimumMasterPasswordLength('a'.repeat(MIN_PASSWORD_LENGTH))).toBe(true)
+      expect(meetsMinimumMasterPasswordLength('a'.repeat(64))).toBe(true)
+    })
   })
 
   it('generateStrongPassword utilise les valeurs par défaut', () => {

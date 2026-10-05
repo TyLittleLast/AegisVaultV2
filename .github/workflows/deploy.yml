@@ -28,6 +28,10 @@ jobs:
     name: Build
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    env:
+      # Pages serves this project from a repository sub-path, so the bundle has
+      # to emit sub-path-absolute URLs. Kept in step with the bundle-audit job.
+      PUBLIC_BASE: /AegisVaultV2/
     steps:
       - uses: actions/checkout@v7
         with:

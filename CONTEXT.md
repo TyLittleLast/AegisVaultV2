@@ -246,12 +246,18 @@ Bundle statique sur **GitHub Pages** : <https://tylittlelast.github.io/AegisVaul
 seul un run vert publie, et le build est refait depuis le `head_sha` que la CI a validé. Un commit
 rouge n'atteint jamais l'URL publique.
 
-Pages servant le site sous `/AegisVaultV2/`, `vite.config.ts` calcule un `base` différent selon la
-commande : `/AegisVaultV2/` pour `vite build`, `/` pour `vite dev`. Le `start_url`, le `scope` et
-les icônes du manifeste PWA en découlent — ils ne sont plus écrits en dur dans `index.html`, qui
-ne déclare plus de `<link rel="manifest">` pour éviter un doublon pointant vers la racine du
-domaine. `npm run preview` sert un build de production, donc il se trouve lui aussi sous le
-sous-chemin : c'est fidèle à ce que Pages sert réellement.
+Pages servant le site sous `/AegisVaultV2/`, le `base` du build vient de la variable
+d'environnement `PUBLIC_BASE` — **pas** de la commande Vite. Le faire dépendre de la commande
+attachait `npm run preview` au chemin de déploiement : prévisualiser un build de production ne
+marchait qu'à l'URL préfixée, un piège plutôt qu'un détail de déploiement. Le défaut est donc la
+racine, ce quservent `npm run dev` et `npm run preview`, et les deux builds qui ciblent Pages (le job
+`deploy` et le job `bundle-audit`) l'activent explicitement — l'artefact audité reste donc exactement
+celui qui est déployé. Une valeur sans `/` final est refusée au build plutôt que de produire des
+assets résolus un dossier trop haut.
+
+Le `start_url`, le `scope` et les icônes du manifeste PWA en découlent — ils ne sont plus écrits en
+dur dans `index.html`, qui ne déclare plus de `<link rel="manifest">` pour éviter un doublon pointant
+vers la racine du domaine.
 
 ---
 

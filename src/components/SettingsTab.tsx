@@ -1,7 +1,11 @@
 import { useRef, useState } from 'react'
 import { Download, Upload, Trash2, AlertTriangle, ShieldCheck, Globe, KeyRound } from 'lucide-react'
 import { isVaultStore } from '../services/vaultSchema'
-import { STRENGTH_THRESHOLDS, entropy as calcEntropy } from '../utils/password'
+import {
+  STRENGTH_THRESHOLDS,
+  entropy as calcEntropy,
+  meetsMinimumMasterPasswordLength,
+} from '../utils/password'
 import type { AppSettings, VaultStore } from '../types/vault'
 
 interface SettingsTabProps {
@@ -34,7 +38,8 @@ export default function SettingsTab({
   const fileInput = useRef<HTMLInputElement>(null)
 
   const newBits = calcEntropy(newPwd)
-  const newPwdStrong = newPwd.length >= 8 && newBits >= STRENGTH_THRESHOLDS.medium
+  const newPwdStrong =
+    meetsMinimumMasterPasswordLength(newPwd) && newBits >= STRENGTH_THRESHOLDS.medium
 
   async function update(patch: Partial<AppSettings>) {
     await onSettingsChange({ ...settings, ...patch })

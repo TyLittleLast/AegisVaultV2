@@ -52,21 +52,32 @@ function contentSecurityPolicy(): Plugin {
 }
 
 /**
- * Deployed location.
+ * Public path the build is served from.
  *
- * The app is published to GitHub Pages under a repository sub-path
- * (`https://<owner>.github.io/AegisVaultV2/`), so the production build has to
- * emit sub-path-absolute URLs. An empty base would resolve `/assets/...`
- * against the domain root and 404 on every asset.
+ * GitHub Pages publishes this project under a repository sub-path
+ * (`https://<owner>.github.io/AegisVaultV2/`), so a deploy build needs
+ * sub-path-absolute URLs. An empty base would resolve `/assets/...` against
+ * the domain root and 404 on every asset.
  *
- * Only `vite build` gets it. The dev server keeps the root base so
- * `npm run dev` stays at http://localhost:5173/ without a prefix.
+ * It comes from `PUBLIC_BASE` rather than from the Vite command on purpose.
+ * Deriving it from the command tied `vite preview` to the deploy path, so
+ * previewing a production build only worked at the prefixed URL — a trap, not
+ * a deployment detail. Now the default is the origin root, which is what both
+ * `npm run dev` and `npm run preview` serve, and the two builds that target
+ * Pages (the deploy job and the bundle audit) opt in explicitly via the
+ * environment, so the audited artefact is byte-for-byte the deployed one.
  *
- * `npm run preview` serves a real production build, so it does sit under the
- * sub-path — that is honest, since it is what Pages will actually serve.
+ * @see .github/workflows/deploy.yml
  */
-function publicPath(command: 'build' | 'serve'): string {
-  return command === 'build' ? '/AegisVaultV2/' : '/'
+function publicPath(): string {
+  const configured = process.env.PUBLIC_BASE
+  if (configured === undefined || configured === '') return '/'
+  if (!configured.startsWith('/') || !configured.endsWith('/')) {
+    // A base without the trailing slash silently produces assets that resolve
+    // one directory too high, which is far harder to diagnose than a throw.
+    throw new Error(`PUBLIC_BASE must start and end with "/", got "${configured}"`)
+  }
+  return configured
 }
 
 /**
@@ -129,8 +140,8 @@ function pwaOptions(base: string) {
   }
 }
 
-export default defineConfig(({ command }) => {
-  const base = publicPath(command)
+export default defineConfig(() => {
+  const base = publicPath()
 
   return {
     base,
