@@ -1,6 +1,7 @@
-// Provides globalThis.indexedDB so the storage layer can be exercised in Node.
-// Nothing else is shimmed: the suite deliberately runs without a DOM, which
-// keeps it honest about the service layer having no rendering dependencies.
+// Provides globalThis.indexedDB so the storage layer can be exercised.
+// The suite runs under jsdom (see vitest.config.ts) for the component tests,
+// but nothing else is shimmed: WebCrypto and fetch come from Node and the
+// service layer still has no DOM dependency of its own.
 import 'fake-indexeddb/auto'
 
 /**

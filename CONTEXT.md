@@ -16,7 +16,7 @@
 | Crypto (chiffrement) | Web Crypto API (AES-256-GCM) |                                        |
 | Anti-fuite           | HIBP Pwned Passwords API     | opt-in, k-anonymat                     |
 | PWA                  | `vite-plugin-pwa`            | shell seul, jamais le coffre           |
-| Tests                | Vitest 5                     | 161 tests                              |
+| Tests                | Vitest 5 + Testing Library   | 205 tests, jsdom                       |
 
 Il n'y a **pas** de `tailwind.config.js` ni de `postcss.config.js` : Tailwind v4 passe par le
 plugin `@tailwindcss/vite` et se configure dans `src/index.css`. `postcss` et `autoprefixer` ont
@@ -207,6 +207,29 @@ AegisVault/
     └── test/
         └── setup.ts
 ```
+
+### Couverture de test
+
+`npm run test:coverage` mesure `src/services`, `src/utils`, `src/data` **et**
+`src/components` — pas seulement les couches non-UI, ce qui était le cas avant le lot de
+tests d'interface.
+
+État réel : 63,8 % statements / 65,2 % lignes, très inégalement répartis.
+
+| Zone                                          | Lignes   |
+| --------------------------------------------- | -------- |
+| `cryptoService`, `vaultSchema`, `hibpService` | 100 %    |
+| `url`, `password`, `brandIcons`               | 93–100 % |
+| `SearchField`                                 | 100 %    |
+| `HealthTab`                                   | 95 %     |
+| `MainLayout`                                  | 57 %     |
+| `GeneratorTab`, `SettingsTab`                 | ~2 %     |
+
+Le seuil global est une **crémaillère** posée au niveau réellement atteint, pas une
+revendication de couverture. Les seuils par glob (`thresholds` en tableau) sont
+**silencieusement ignorés par Vitest 5.0.3** : vérifié en les plaçant à 99 %, ils ne
+déclenchaient aucune erreur, alors que la forme globale, elle, bloque. Il faut donc un objet
+unique. Remonter ce plancher au fur et à mesure des tests d'interface.
 
 ---
 
