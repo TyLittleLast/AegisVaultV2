@@ -206,6 +206,7 @@ describe('reencryptEntry', () => {
         .map((m) => m.service)
         .sort(),
     ).toEqual(['GitHub', 'GitLab'])
-    await expect(decryptEntryPassword(rotated[0], newKey)).resolves.toBe(INPUT.password)
+    expect(rotated).toHaveLength(2)
+    await expect(decryptEntryPassword(rotated[0]!, newKey)).resolves.toBe(INPUT.password)
   })
 })
