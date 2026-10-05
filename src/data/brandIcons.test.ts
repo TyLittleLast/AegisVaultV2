@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { brandTint, resolveBrand } from './brandIcons'
+import { resolveBrand } from './brandIcons'
 import { BRAND_MARKS } from './brandIcons.generated'
 
 describe('resolveBrand', () => {
@@ -71,12 +71,5 @@ describe('BRAND_MARKS', () => {
       expect(mark.hex, slug).toMatch(/^[0-9A-F]{6}$/)
       expect(mark.path.length, slug).toBeGreaterThan(0)
     }
-  })
-})
-
-describe('brandTint', () => {
-  it('converts a hex colour to rgba', () => {
-    expect(brandTint('#FF0000')).toBe('rgba(255, 0, 0, 0.12)')
-    expect(brandTint('#1A73E8', 0.5)).toBe('rgba(26, 115, 232, 0.5)')
   })
 })

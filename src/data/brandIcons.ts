@@ -68,9 +68,3 @@ export function resolveBrand(label: string): ResolvedBrand | null {
 
   return best
 }
-
-/** Brand colour at low alpha, for the tile behind the glyph. */
-export function brandTint(color: string, alpha = 0.12): string {
-  const [r, g, b] = [1, 3, 5].map((i) => parseInt(color.slice(i, i + 2), 16))
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}

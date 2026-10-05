@@ -1,4 +1,4 @@
-import { brandTint, resolveBrand } from '../data/brandIcons'
+import { resolveBrand } from '../data/brandIcons'
 
 const TONES = [
   'bg-[#F3E3DA] text-[#8A4B32]',
@@ -40,12 +40,15 @@ export default function ServiceAvatar({ label, size = 40 }: { label: string; siz
   const brand = resolveBrand(label)
 
   if (brand) {
-    const glyph = Math.round(size * 0.58)
+    // Neutral tile: the brand colour lives in the glyph only. Tinting the tile
+    // with it made the list the one saturated area on screen, and a red or
+    // orange brand turned the whole row pink.
+    const glyph = Math.round(size * 0.5)
     return (
       <div
         aria-hidden="true"
-        className="flex shrink-0 items-center justify-center rounded-xl"
-        style={{ width: size, height: size, backgroundColor: brandTint(brand.color) }}
+        className="flex shrink-0 items-center justify-center rounded-xl bg-ink-light"
+        style={{ width: size, height: size }}
       >
         <svg width={glyph} height={glyph} viewBox={brand.viewBox} role="presentation">
           <path fill={brand.color} d={brand.path} />
