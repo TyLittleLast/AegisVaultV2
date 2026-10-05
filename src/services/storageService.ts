@@ -131,6 +131,16 @@ export function isLockedOut(attempts: UnlockAttempts, now = Date.now()): boolean
   return attempts.lockedUntil !== null && attempts.lockedUntil > now
 }
 
+/**
+ * Verdict of a persist() request.
+ *
+ * `refused` is a real, common answer rather than a failure: Chrome decides
+ * silently from engagement heuristics and Firefox usually grants outright, so
+ * the user needs to be told the difference rather than be left with a button
+ * that cannot succeed.
+ */
+export type PersistenceOutcome = 'idle' | 'granted' | 'refused'
+
 export interface StorageDurability {
   /** True once the browser has agreed not to evict this origin under pressure. */
   persisted: boolean

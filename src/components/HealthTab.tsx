@@ -13,7 +13,7 @@ import {
 import { checkPasswordBreach } from '../services/hibpService'
 import { STRENGTH_THRESHOLDS, entropy as calcEntropy } from '../utils/password'
 import StorageCard from './StorageCard'
-import type { StorageDurability } from '../services/storageService'
+import type { PersistenceOutcome, StorageDurability } from '../services/storageService'
 import type { EntrySearchMeta, VaultEntry } from '../types/vault'
 
 interface HealthTabProps {
@@ -24,6 +24,7 @@ interface HealthTabProps {
   onFixEntry: (entryId: string) => void | Promise<void>
   durability: StorageDurability | null
   requestingPersist: boolean
+  persistOutcome: PersistenceOutcome
   onRequestPersist: () => void
 }
 
@@ -52,6 +53,7 @@ export default function HealthTab({
   onFixEntry,
   durability,
   requestingPersist,
+  persistOutcome,
   onRequestPersist,
 }: HealthTabProps) {
   const [diags, setDiags] = useState<Record<string, EntryDiag>>({})
@@ -161,6 +163,7 @@ export default function HealthTab({
       <StorageCard
         durability={durability}
         requesting={requestingPersist}
+        persistOutcome={persistOutcome}
         onRequestPersist={onRequestPersist}
       />
 

@@ -23,7 +23,7 @@ import SettingsTab from './SettingsTab'
 import AddEntryModal from './AddEntryModal'
 import { useIsMobile } from '../hooks/useIsMobile'
 import { STRENGTH_THRESHOLDS, grade } from '../utils/password'
-import type { StorageDurability } from '../services/storageService'
+import type { PersistenceOutcome, StorageDurability } from '../services/storageService'
 import type {
   AppSettings,
   EntryInput,
@@ -53,6 +53,7 @@ interface MainLayoutProps {
   onRevealAll: () => Promise<Record<string, string>>
   durability: StorageDurability | null
   requestingPersist: boolean
+  persistOutcome: PersistenceOutcome
   onRequestPersist: () => void
 }
 
@@ -234,6 +235,7 @@ export default function MainLayout({
   onRevealAll,
   durability,
   requestingPersist,
+  persistOutcome,
   onRequestPersist,
 }: MainLayoutProps) {
   const isMobile = useIsMobile()
@@ -575,6 +577,7 @@ export default function MainLayout({
                 onFixEntry={onFixEntry}
                 durability={durability}
                 requestingPersist={requestingPersist}
+                persistOutcome={persistOutcome}
                 onRequestPersist={onRequestPersist}
               />
             </div>
