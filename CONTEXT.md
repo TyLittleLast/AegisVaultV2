@@ -16,7 +16,7 @@
 | Crypto (chiffrement) | Web Crypto API (AES-256-GCM) |                                        |
 | Anti-fuite           | HIBP Pwned Passwords API     | opt-in, k-anonymat                     |
 | PWA                  | `vite-plugin-pwa`            | shell seul, jamais le coffre           |
-| Tests                | Vitest 5 + Testing Library   | 205 tests, jsdom                       |
+| Tests                | Vitest 5 + Testing Library   | 238 tests, jsdom                       |
 
 Il n'y a **pas** de `tailwind.config.js` ni de `postcss.config.js` : Tailwind v4 passe par le
 plugin `@tailwindcss/vite` et se configure dans `src/index.css`. `postcss` et `autoprefixer` ont
@@ -162,9 +162,14 @@ AegisVault/
 ├── index.html
 ├── package.json
 ├── tsconfig.json / tsconfig.node.json
-├── vite.config.ts               # CSP injectée au build + PWA
+├── vite.config.ts               # CSP injectée au build + PWA + base de déploiement
 ├── vitest.config.ts
 ├── eslint.config.js
+├── .github/
+│   ├── dependabot.yml           # patchs groupés, majors une par PR
+│   └── workflows/
+│       ├── ci.yml               # format, types, lint, tests+couverture, build, audit
+│       └── deploy.yml           # GitHub Pages, déclenché après une CI verte
 ├── scripts/
 │   ├── brand-manifest.mjs       # slugs + alias, curatés à la main
 │   └── generate-brand-icons.mjs # npm run gen:brands
@@ -214,7 +219,7 @@ AegisVault/
 `src/components` — pas seulement les couches non-UI, ce qui était le cas avant le lot de
 tests d'interface.
 
-État réel : 63,8 % statements / 65,2 % lignes, très inégalement répartis.
+État réel : 74,7 % statements / 76,9 % lignes, très inégalement répartis.
 
 | Zone                                          | Lignes   |
 | --------------------------------------------- | -------- |
@@ -222,14 +227,31 @@ tests d'interface.
 | `url`, `password`, `brandIcons`               | 93–100 % |
 | `SearchField`                                 | 100 %    |
 | `HealthTab`                                   | 95 %     |
+| `GeneratorTab`, `SettingsTab`                 | > 80 %   |
 | `MainLayout`                                  | 57 %     |
-| `GeneratorTab`, `SettingsTab`                 | ~2 %     |
 
 Le seuil global est une **crémaillère** posée au niveau réellement atteint, pas une
 revendication de couverture. Les seuils par glob (`thresholds` en tableau) sont
 **silencieusement ignorés par Vitest 5.0.3** : vérifié en les plaçant à 99 %, ils ne
 déclenchaient aucune erreur, alors que la forme globale, elle, bloque. Il faut donc un objet
 unique. Remonter ce plancher au fur et à mesure des tests d'interface.
+
+---
+
+## Déploiement
+
+Bundle statique sur **GitHub Pages** : <https://tylittlelast.github.io/AegisVaultV2/>
+
+`.github/workflows/deploy.yml` se déclenche sur `workflow_run` de la CI, **pas** sur le push :
+seul un run vert publie, et le build est refait depuis le `head_sha` que la CI a validé. Un commit
+rouge n'atteint jamais l'URL publique.
+
+Pages servant le site sous `/AegisVaultV2/`, `vite.config.ts` calcule un `base` différent selon la
+commande : `/AegisVaultV2/` pour `vite build`, `/` pour `vite dev`. Le `start_url`, le `scope` et
+les icônes du manifeste PWA en découlent — ils ne sont plus écrits en dur dans `index.html`, qui
+ne déclare plus de `<link rel="manifest">` pour éviter un doublon pointant vers la racine du
+domaine. `npm run preview` sert un build de production, donc il se trouve lui aussi sous le
+sous-chemin : c'est fidèle à ce que Pages sert réellement.
 
 ---
 
@@ -245,3 +267,21 @@ npm run gen:brands # après edit de scripts/brand-manifest.mjs
 Avant de merger : branche dédiée → commit/push → **test navigateur utilisateur** → validation
 « ok » → `git merge --no-ff` dans `main`. Les changements purement visuels ne sont pas validables
 par la suite de tests.
+
+### Versions de dépendances : ce qui est différé, et pourquoi
+
+`engines` vaut `>=22`. Node 20 est sorti de la matrice de CI parce qu'il est **en fin de vie** et
+que `jsdom` 30 appelle `util.markAsUncloneable`, absent avant Node 22 — sur Node 20 chaque worker
+de test mourait avant le premier test, d'où 0 % de couverture et un job rouge sans cause visible.
+
+Deux majors sont refusées délibérément, et leurs PR Dependabot sont fermées avec la raison plutôt
+que silencieusement :
+
+- **React 19** — différé, aucun besoin fonctionnel ;
+- **TypeScript 7** — non installable : `typescript-eslint@8.71.0` déclare
+  `peer typescript@">=4.8.4 <6.1.0"`, et npm signale que la 6.0.3 serait déjà en conflit. Aucun
+  `--legacy-peer-deps` dans un projet qui publie son modèle de menace.
+
+`npm audit` ne signale aucune vulnérabilité sur l'arbre courant. Les PR Dependabot à forme
+« security group » qui regroupaient majors et patchs sont fermées : leur titre promettait des
+correctifs de sécurité, leur contenu en contenait sept sur neuf.

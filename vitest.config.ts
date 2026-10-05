@@ -28,14 +28,17 @@ export default defineConfig({
       // Per-glob thresholds (an array) are silently ignored by Vitest 5.0.3,
       // so the honest option is one number per metric. The layers that matter
       // are far above it — cryptoService 100% lines, vaultSchema 100%,
-      // hibpService 100%, brandIcons 100% — while GeneratorTab (3%) and
-      // SettingsTab (2%) drag the global figure down. Raise this floor as the
-      // remaining UI gets tests; do not lower it.
+      // hibpService 100%, brandIcons 100% — while MainLayout (57%) and the
+      // panels behind it still drag the global figure down. Raise this floor
+      // as the remaining UI gets tests; do not lower it.
+      //
+      // Raised from 64/63/56/52 after GeneratorTab and SettingsTab gained
+      // tests: 205 -> 238 tests, 63.8% -> 74.7% statements.
       thresholds: {
-        lines: 64,
-        statements: 63,
-        functions: 56,
-        branches: 52,
+        lines: 75,
+        statements: 73,
+        functions: 68,
+        branches: 59,
       },
     },
   },

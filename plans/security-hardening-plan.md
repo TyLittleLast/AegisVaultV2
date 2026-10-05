@@ -19,6 +19,21 @@ close ; voir `CONTEXT.md` pour l'état courant.
 - **Chiffrement par champ** (modèle Bitwarden), et non un blob JSON par entrée.
 - **Tailwind v4 : oui. React 19 : différé** (18.3 est stable, aucun besoin fonctionnel — argument d'ingénierie assumé en entretien).
 
+## Journal des décisions — 2026-10-05
+
+Feuille de route close, quatre décisions prises depuis, intégrées au repo.
+
+| Décision                                                | Cause                                                                                                                                                                                                                                                                    | Effet                                                                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| **Node 20 retiré** de la matrice CI, `engines` → `>=22` | Node 20 est en fin de vie, donc sans correctifs de sécurité. Surtout, `jsdom` 30 appelle `util.markAsUncloneable`, absent avant Node 22 : sur Node 20 chaque worker de test mourait avant le premier test, et le job échouait avec 0 % de couverture sans cause visible. | La plage déclarée et la plage testée coïncident. Aucune dérive de dépendance : `jsdom` reste en 30.1.2. |
+| **React 19 différé, PR #6 et #8 fermées**               | Elles meurent à `npm ci` en `ERESOLVE`, et sont **circulairement dépendantes** : chacune exige l'autre. Dependabot les a séparées alors qu'aucune n'est fusionnable seule.                                                                                               | Décision du plan reconduite, pas d'essai à mi-chemin.                                                   |
+| **TypeScript 7 différé, PR #7 fermée**                  | `typescript-eslint@8.71.0` déclare `peer typescript@">=4.8.4 <6.1.0"`. npm signale que la **6.0.3** serait déjà en conflit : ce n'est pas propre à la 7. Aucun `--legacy-peer-deps` ici.                                                                                 | Rouvre quand l'écosystème suit, pas avant.                                                              |
+| **PR « security group » fermée**                        | Elle annonçait des correctifs de sécurité et contenait **7 majors sur 9 updates** (React 19, TypeScript 7, Vite 8…). `npm audit` ne signale aucune vulnérabilité sur l'arbre courant.                                                                                    | Un titre trompeur est pire que pas de titre.                                                            |
+
+Le même jour : `GeneratorTab` et `SettingsTab` passent d'environ 2 % à plus de 80 % de couverture
+(205 → 238 tests, 63,8 % → 74,7 % des instructions), le plancher global est relevé en conséquence,
+et l'URL vivante promise depuis la phase 11 est publiée sur GitHub Pages.
+
 ## Modèle de données cible
 
 ```ts

@@ -52,6 +52,24 @@ function contentSecurityPolicy(): Plugin {
 }
 
 /**
+ * Deployed location.
+ *
+ * The app is published to GitHub Pages under a repository sub-path
+ * (`https://<owner>.github.io/AegisVaultV2/`), so the production build has to
+ * emit sub-path-absolute URLs. An empty base would resolve `/assets/...`
+ * against the domain root and 404 on every asset.
+ *
+ * Only `vite build` gets it. The dev server keeps the root base so
+ * `npm run dev` stays at http://localhost:5173/ without a prefix.
+ *
+ * `npm run preview` serves a real production build, so it does sit under the
+ * sub-path — that is honest, since it is what Pages will actually serve.
+ */
+function publicPath(command: 'build' | 'serve'): string {
+  return command === 'build' ? '/AegisVaultV2/' : '/'
+}
+
+/**
  * Offline shell.
  *
  * Only the built application is precached. No runtime caching rules are
@@ -63,54 +81,63 @@ function contentSecurityPolicy(): Plugin {
  * `autoUpdate` means a new deploy replaces the old shell without prompting,
  * which is the right trade for a single-page app with no server coordination.
  */
-const PWA_OPTIONS = {
-  registerType: 'autoUpdate' as const,
-  includeAssets: ['shield.svg', 'shield-maskable.svg'],
-  manifest: {
-    name: 'AegisVault — coffre-fort local',
-    short_name: 'AegisVault',
-    description:
-      'Coffre-fort de mots de passe 100 % local. Aucun serveur, aucun compte, aucune télémétrie.',
-    lang: 'fr',
-    dir: 'ltr',
-    start_url: '/',
-    scope: '/',
-    display: 'standalone',
-    orientation: 'any',
-    background_color: '#F5F2EC',
-    theme_color: '#F5F2EC',
-    categories: ['utilities', 'security', 'productivity'],
-    icons: [
-      {
-        src: '/shield.svg',
-        sizes: 'any',
-        type: 'image/svg+xml',
-        purpose: 'any',
-      },
-      {
-        src: '/shield-maskable.svg',
-        sizes: 'any',
-        type: 'image/svg+xml',
-        purpose: 'maskable',
-      },
-    ],
-  },
-  workbox: {
-    // woff2 is included so the app is genuinely usable offline, not just
-    // bootable: without the fonts the shell renders in a fallback face.
-    globPatterns: ['**/*.{js,css,html,svg,woff2}'],
-    cleanupOutdatedCaches: true,
-  },
-  devOptions: {
-    // A service worker in dev would serve a stale shell and mask real changes.
-    enabled: false,
-  },
+function pwaOptions(base: string) {
+  return {
+    registerType: 'autoUpdate' as const,
+    includeAssets: [`${base}shield.svg`, `${base}shield-maskable.svg`],
+    manifest: {
+      name: 'AegisVault — coffre-fort local',
+      short_name: 'AegisVault',
+      description:
+        'Coffre-fort de mots de passe 100 % local. Aucun serveur, aucun compte, aucune télémétrie.',
+      lang: 'fr',
+      dir: 'ltr',
+      // Absolute, not relative: a relative start_url would resolve against
+      // whatever directory the browser happens to be in.
+      start_url: base,
+      scope: base,
+      display: 'standalone',
+      orientation: 'any',
+      background_color: '#F5F2EC',
+      theme_color: '#F5F2EC',
+      categories: ['utilities', 'security', 'productivity'],
+      icons: [
+        {
+          src: `${base}shield.svg`,
+          sizes: 'any',
+          type: 'image/svg+xml',
+          purpose: 'any',
+        },
+        {
+          src: `${base}shield-maskable.svg`,
+          sizes: 'any',
+          type: 'image/svg+xml',
+          purpose: 'maskable',
+        },
+      ],
+    },
+    workbox: {
+      // woff2 is included so the app is genuinely usable offline, not just
+      // bootable: without the fonts the shell renders in a fallback face.
+      globPatterns: ['**/*.{js,css,html,svg,woff2}'],
+      cleanupOutdatedCaches: true,
+    },
+    devOptions: {
+      // A service worker in dev would serve a stale shell and mask real changes.
+      enabled: false,
+    },
+  }
 }
 
-export default defineConfig({
-  plugins: [react(), tailwindcss(), contentSecurityPolicy(), VitePWA(PWA_OPTIONS)],
-  build: {
-    target: 'es2022',
-    sourcemap: false,
-  },
+export default defineConfig(({ command }) => {
+  const base = publicPath(command)
+
+  return {
+    base,
+    plugins: [react(), tailwindcss(), contentSecurityPolicy(), VitePWA(pwaOptions(base))],
+    build: {
+      target: 'es2022',
+      sourcemap: false,
+    },
+  }
 })

@@ -205,7 +205,7 @@ npm run preview  # sert dist/ localement
 
 ## Tests
 
-205 tests sur 16 fichiers, exécutés par la CI sur Node 22 et 24.
+238 tests sur 18 fichiers, exécutés par la CI sur Node 22 et 24.
 
 La couverture n'est pas uniforme, et il vaut mieux le dire que l'arrondir vers le haut :
 
@@ -215,10 +215,10 @@ La couverture n'est pas uniforme, et il vaut mieux le dire que l'arrondir vers l
 | `url`, `password`, `brandIcons`               | 93–100 % |
 | `SearchField`                                 | 100 %    |
 | `HealthTab`                                   | 95 %     |
+| `GeneratorTab`, `SettingsTab`                 | > 80 %   |
 | `MainLayout`                                  | 57 %     |
-| `GeneratorTab`, `SettingsTab`                 | ~2 %     |
 
-Globalement, **63,8 % des instructions et 65,2 % des lignes**, toutes couches confondues. C'est ce
+Globalement, **74,7 % des instructions et 76,9 % des lignes**, toutes couches confondues. C'est ce
 chiffre-là qui est bloqué par un plancher dans `vitest.config.ts` : le faire baisser fait échouer la
 CI. La couche qui porte le risque est à 100 % ; l'interface est en retard, et le tableau le dit.
 
@@ -236,7 +236,9 @@ Les tests ciblent prioritairement les régressions silencieuses, celles qui ne c
 - **URL** — `javascript:`, `data:`, `file:` et la variante `javascript://` qui passe un
   `includes('://')` ;
 - **interface** — repli monogramme/marque, géométrie de la jauge hors bornes, `Escape` qui replie
-  sans vider la requête, ordre de tabulation d'un champ replié, filtrage et recherche de la liste.
+  sans vider la requête, ordre de tabulation d'un champ replié, filtrage et recherche de la liste,
+  générateur (longueur, seuils de robustesse, pool vide, copie), réglages (verrouillage, HIBP,
+  export, refus d'un fichier v1, rotation du mot de passe maître, double confirmation du reset).
 
 Seul IndexedDB est simulé (`fake-indexeddb`). La suite tourne sous **jsdom** pour les tests de
 composants, qui rendent React pour de vrai ; `crypto.subtle` et `fetch` restent ceux de Node. Les
@@ -294,12 +296,21 @@ Le plan de durcissement et son historique sont dans [`plans/security-hardening-p
 
 ---
 
-## PWA
+## PWA et déploiement
 
 L'application est installable et fonctionne hors ligne après une première visite. Le service worker
 ne précharge que le build : **aucune règle de cache à l'exécution n'est enregistrée**, afin qu'il ne
 puisse jamais répondre à la place de l'API HIBP. Les données du coffre vivent dans IndexedDB et ne
 sont jamais touchées par le cache.
+
+**Essayer :** <https://tylittlelast.github.io/AegisVaultV2/>
+
+Le déploiement est un bundle statique sur GitHub Pages, publié par `.github/workflows/deploy.yml` —
+uniquement après un run de CI **vert**, et depuis le SHA exact que la CI a testé. Un commit rouge
+n'atteint donc jamais l'URL publique.
+
+Comme Pages sert le site sous un sous-chemin (`/AegisVaultV2/`), `vite build` émet des URL absolues
+de ce sous-chemin. Seul le build est concerned : `npm run dev` reste à la racine, sans préfixe.
 
 ## CI
 
@@ -318,6 +329,12 @@ c'est ce qui leur donne un sens de plancher.
 Dependabot regroupe uniquement les **patchs**. Les majors restent une PR par dépendance, pour deux
 raisons : une PR qui casse n'identifie pas sa cause, et un reviewer qui apprend à ignorer des PR
 rouges cesse d'en lire.
+
+Une major refusée se ferme avec sa raison, ce qui vaut mieux qu'un `close` sans explication :
+React 19 reste différé (aucun besoin fonctionnel), et TypeScript 7 est **ininstallable en l'état**
+ici — `typescript-eslint` déclare `peer typescript@">=4.8.4 <6.1.0"`, et npm signale que la 6.0.3
+serait déjà en conflit. On ne pose pas de `--legacy-peer-deps` dans un projet qui publie son modèle
+de menace.
 
 ## Licence
 

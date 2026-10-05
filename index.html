@@ -12,7 +12,8 @@
     <meta name="color-scheme" content="light" />
     <link rel="icon" type="image/svg+xml" href="/shield.svg" />
     <link rel="apple-touch-icon" href="/shield.svg" />
-    <link rel="manifest" href="/manifest.webmanifest" />
+    <!-- No static <link rel="manifest">: vite-plugin-pwa injects one that
+         knows the deploy base. A hardcoded path here 404s under a sub-path. -->
     <!-- Deliberately no referrer: nothing here should leak the vault's context. -->
     <meta name="referrer" content="no-referrer" />
   </head>
