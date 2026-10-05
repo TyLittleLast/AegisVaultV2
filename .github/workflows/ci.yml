@@ -78,6 +78,27 @@ jobs:
       - run: npm ci
       - run: npm run build
 
+      # The CSP is authored by hand while the assets it governs are produced by
+      # Vite, which silently inlines anything under assetsInlineLimit. That
+      # mismatch shipped a real bug: a @fontsource subset came out as a
+      # `url(data:font/woff2;base64,…)` reference that `font-src 'self'`
+      # blocked, so glyphs silently fell back to a system face. Only a browser
+      # could see it. This asserts the two stay consistent.
+      - name: Fail when the CSP rejects an asset the build emitted
+        run: |
+          check() {
+            scheme="$1"
+            directive="$2"
+            if grep -rq "url(data:${scheme}" dist --include='*.css' \
+              && ! grep -qE "<meta http-equiv=\"Content-Security-Policy\"[^>]*${directive}[^>]*data:" dist/index.html; then
+              echo "::error::the build emitted a data: ${scheme} but the CSP directive '${directive}' does not allow data: — the browser would block it"
+              exit 1
+            fi
+          }
+          check font font-src
+          check image img-src
+          echo "CSP allows every inlined data: scheme found in dist/"
+
       - name: Fail on leaked credential-shaped strings
         run: |
           if grep -rniE 'BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|api[-_]?key[[:space:]]*[:=][[:space:]]*[A-Za-z0-9]{16,}' dist; then

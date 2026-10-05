@@ -17,13 +17,21 @@ import { VitePWA } from 'vite-plugin-pwa'
  * `style-src` still needs 'unsafe-inline' because strength meters set inline
  * widths. That is a far smaller exposure than inline script, and `script-src`
  * stays locked to 'self'.
+ *
+ * `font-src` needs `data:` because Vite inlines any asset below
+ * `assetsInlineLimit` (4 KB by default), and one @fontsource subset falls under
+ * it. That subset became a `url(data:font/woff2;base64,…)` reference which
+ * `font-src 'self'` blocked, so a handful of glyphs silently fell back to a
+ * system face. `data:` is not a third party: the bytes live inside our own
+ * stylesheet, so nothing is fetched from anywhere. `font-src` remains a promise
+ * that no font host is ever contacted.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "script-src 'self'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
-  "font-src 'self'",
+  "font-src 'self' data:",
   "connect-src 'self' https://api.pwnedpasswords.com",
   "worker-src 'self'",
   "manifest-src 'self'",
