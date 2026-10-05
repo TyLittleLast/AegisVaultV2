@@ -3,3 +3,7 @@ coverage
 node_modules
 package-lock.json
 *.woff2
+
+# Agent worktrees live inside the repo and carry their own tsconfig and sources.
+# Formatting them would edit another session's files.
+.kilo/
